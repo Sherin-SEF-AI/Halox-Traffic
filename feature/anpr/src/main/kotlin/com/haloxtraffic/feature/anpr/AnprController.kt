@@ -67,7 +67,8 @@ class AnprController @Inject constructor(
             val best = ranked.take(TOP_N)
             val color = runCatching { colorClassifier.classify(best.first()) }.getOrDefault(PlateColor.UNKNOWN)
             val reads = best.mapNotNull { crop -> runCatching { ocrEngine.recognize(crop) }.getOrNull() }
-            pipeline.resolve(reads, color)
+            Timber.d("OCR raw reads: ${reads.map { "'${it.text}'@${(it.overall * 100).toInt()}%" }}")
+            pipeline.resolve(reads, color).also { Timber.d("OCR resolved: '${it.plate}' validated=${it.validated} conf=${(it.confidence * 100).toInt()}%") }
         } catch (t: Throwable) {
             Timber.e(t, "ANPR recognition failed")
             PlateRead.unreadable()

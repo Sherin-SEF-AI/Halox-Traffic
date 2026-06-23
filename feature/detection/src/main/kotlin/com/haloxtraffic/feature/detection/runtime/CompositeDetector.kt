@@ -32,7 +32,7 @@ class CompositeDetector @Inject constructor(
     private val helmet = OnnxYoloDetector(
         context, "models/helmet.onnx", inputSize = 320,
         classMap = mapOf(0 to DetectionClass.HELMET, 1 to DetectionClass.NO_HELMET),
-        scoreThreshold = 0.30f, useNnapi = true, // fixed-shape model → NNAPI-friendly
+        scoreThreshold = 0.25f, // fp16 model runs correctly on CPU; NNAPI fp16 is unreliable
     )
 
     override var activeDelegate: InferenceDelegate? = null
@@ -67,33 +67,47 @@ class CompositeDetector @Inject constructor(
         )
     }
 
-    /** Run plate (on each vehicle) + helmet (on each motorcycle's rider region), remapped to the frame. */
+    /** Run plate (on each vehicle) + helmet (on each motorcycle rider), remapped to the frame. */
     private fun runOnCrops(frameBmp: Bitmap, cocoBoxes: List<BoundingBox>): List<BoundingBox> {
         val out = ArrayList<BoundingBox>()
         val vehicles = cocoBoxes.filter { DetectionClass.fromId(it.classId)?.isVehicle == true }
             .sortedByDescending { it.area }
             .take(MAX_VEHICLES)
 
-        for (v in vehicles) {
-            if (plate.isReady()) {
-                cropRegion(frameBmp, v)?.let { (bmp, region) ->
-                    plate.detect(bmp).forEach { out += remap(it, region) }
-                    bmp.recycle()
-                }
+        // Plate: run on every vehicle crop.
+        if (plate.isReady()) {
+            for (v in vehicles) cropRegion(frameBmp, v)?.let { (bmp, region) ->
+                plate.detect(bmp).forEach { out += remap(it, region) }
+                bmp.recycle()
             }
-            if (helmet.isReady() && DetectionClass.fromId(v.classId) == DetectionClass.MOTORCYCLE) {
-                val rider = v.copy(top = (v.top - v.height * RIDER_UP).coerceAtLeast(0f))
-                cropRegion(frameBmp, rider)?.let { (bmp, region) ->
+        }
+
+        // Helmet: heads live on the riders, so run on PERSON boxes that sit on a motorcycle (reliable
+        // head containers), expanded slightly upward for head margin.
+        val motos = vehicles.filter { DetectionClass.fromId(it.classId) == DetectionClass.MOTORCYCLE }
+        var riders = 0
+        if (helmet.isReady() && motos.isNotEmpty()) {
+            val persons = cocoBoxes.filter { DetectionClass.fromId(it.classId) == DetectionClass.PERSON }
+                .filter { p -> motos.any { overlaps(it, p) } }
+                .sortedByDescending { it.area }
+                .take(MAX_RIDERS)
+            riders = persons.size
+            for (p in persons) {
+                val head = p.copy(top = (p.top - p.height * RIDER_UP).coerceAtLeast(0f))
+                cropRegion(frameBmp, head)?.let { (bmp, region) ->
                     helmet.detect(bmp).forEach { out += remap(it, region) }
                     bmp.recycle()
                 }
             }
         }
-        val motos = vehicles.count { DetectionClass.fromId(it.classId) == DetectionClass.MOTORCYCLE }
-        Timber.d("Crops: ${vehicles.size} vehicles ($motos moto) → ${out.size} dets" +
+        Timber.d("Crops: ${vehicles.size} veh / ${motos.size} moto / $riders riders → ${out.size} dets" +
             if (out.isNotEmpty()) " [${out.joinToString { DetectionClass.entries[it.classId].label }}]" else "")
         return out
     }
+
+    /** True if the two normalised boxes intersect at all. */
+    private fun overlaps(a: BoundingBox, b: BoundingBox): Boolean =
+        a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
 
     /** Crop the frame to a normalised [region]; returns (bitmap, actual region used) or null if too small. */
     private fun cropRegion(frame: Bitmap, region: BoundingBox): Pair<Bitmap, BoundingBox>? {
@@ -126,6 +140,7 @@ class CompositeDetector @Inject constructor(
         const val EVERY = 2L            // run plate/helmet every 2nd frame
         const val MAX_VEHICLES = 5      // cap per-frame crop inferences
         const val MIN_CROP = 24         // skip tiny vehicle boxes
-        const val RIDER_UP = 1.0f       // expand a motorcycle box upward to include the rider's head
+        const val MAX_RIDERS = 4        // cap helmet inferences per frame
+        const val RIDER_UP = 0.25f      // expand a rider's person box upward for head margin
     }
 }
