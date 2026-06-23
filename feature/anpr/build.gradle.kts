@@ -33,8 +33,8 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.timber)
 
-    // PaddleOCR PP-OCRv5 recognizer runs on the same TFLite/LiteRT runtime as the detector (CTC/SVTR).
-    implementation(libs.litert)
+    // PaddleOCR PP-OCRv5 recognizer (CTC) runs on ONNX Runtime, same as the YOLO detectors.
+    implementation(libs.onnxruntime.android)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

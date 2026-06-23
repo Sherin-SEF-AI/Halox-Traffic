@@ -42,28 +42,10 @@ class AnprController @Inject constructor(
     private val _status = MutableStateFlow(OcrStatus.IDLE)
     val status: StateFlow<OcrStatus> = _status.asStateFlow()
 
-    /** Provision + load the OCR model for [tier]. Returns true when ready. */
+    /** Load the bundled OCR recognizer (PP-OCRv5, shipped in assets). Returns true when ready. */
     suspend fun start(tier: DeviceTier): Boolean = withContext(ioDispatcher) {
-        val spec = registry.specsFor(DetectionConfig.forTier(tier)).first { it.kind == ModelKind.PLATE_OCR }
-        _status.value = OcrStatus.PROVISIONING
-        var file: java.io.File? = null
-        provisioner.provision(spec).collect { state ->
-            when (state) {
-                is ProvisionState.Ready -> file = state.file
-                is ProvisionState.Cached -> file = state.file
-                is ProvisionState.Failed -> {
-                    Timber.w("OCR model not available: ${state.reason}")
-                    _status.value = OcrStatus.NO_MODEL
-                }
-                else -> Unit
-            }
-        }
-        val f = file ?: run {
-            if (_status.value != OcrStatus.NO_MODEL) _status.value = OcrStatus.NO_MODEL
-            return@withContext false
-        }
         _status.value = OcrStatus.LOADING
-        runCatching { ocrEngine.init(f) }
+        runCatching { ocrEngine.init() }
             .onSuccess { _status.value = OcrStatus.RUNNING }
             .onFailure { Timber.e(it, "OCR init failed"); _status.value = OcrStatus.ERROR }
             .isSuccess

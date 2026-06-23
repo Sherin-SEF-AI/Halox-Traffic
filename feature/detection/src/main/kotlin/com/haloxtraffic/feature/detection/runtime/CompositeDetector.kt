@@ -25,10 +25,14 @@ class CompositeDetector @Inject constructor(
     private val coco: MediaPipeObjectDetector,
 ) : Detector {
 
-    private val plate = OnnxYoloDetector(context, "models/plate.onnx", inputSize = 416, classMap = mapOf(0 to DetectionClass.PLATE))
+    private val plate = OnnxYoloDetector(
+        context, "models/plate.onnx", inputSize = 416,
+        classMap = mapOf(0 to DetectionClass.PLATE), scoreThreshold = 0.30f,
+    )
     private val helmet = OnnxYoloDetector(
         context, "models/helmet.onnx", inputSize = 320,
         classMap = mapOf(0 to DetectionClass.HELMET, 1 to DetectionClass.NO_HELMET),
+        scoreThreshold = 0.30f, useNnapi = true, // fixed-shape model → NNAPI-friendly
     )
 
     override var activeDelegate: InferenceDelegate? = null
@@ -85,9 +89,9 @@ class CompositeDetector @Inject constructor(
                 }
             }
         }
-        if (out.isNotEmpty()) {
-            Timber.d("Crops → ${out.joinToString { DetectionClass.entries[it.classId].label }}")
-        }
+        val motos = vehicles.count { DetectionClass.fromId(it.classId) == DetectionClass.MOTORCYCLE }
+        Timber.d("Crops: ${vehicles.size} vehicles ($motos moto) → ${out.size} dets" +
+            if (out.isNotEmpty()) " [${out.joinToString { DetectionClass.entries[it.classId].label }}]" else "")
         return out
     }
 

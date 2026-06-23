@@ -23,6 +23,7 @@ class OnnxYoloDetector(
     private val classMap: Map<Int, DetectionClass>,
     private val scoreThreshold: Float = 0.35f,
     private val iouThreshold: Float = 0.45f,
+    private val useNnapi: Boolean = false,
 ) {
     private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
@@ -35,14 +36,17 @@ class OnnxYoloDetector(
         val bytes = context.assets.open(assetPath).use { it.readBytes() }
         val e = OrtEnvironment.getEnvironment()
         val opts = OrtSession.SessionOptions().apply {
-            // Use available CPU cores; NNAPI EP is added in the perf pass.
             setIntraOpNumThreads(java.lang.Runtime.getRuntime().availableProcessors().coerceAtMost(4))
         }
+        // Best-effort hardware acceleration (NPU/GPU via NNAPI); unsupported nodes fall back to CPU.
+        var ep = "CPU"
+        if (useNnapi) runCatching { opts.addNnapi(); ep = "NNAPI" }
+            .onFailure { Timber.w(it, "NNAPI unavailable for $assetPath, using CPU") }
         val s = e.createSession(bytes, opts)
         inputName = s.inputNames.firstOrNull() ?: "images"
         env = e
         session = s
-        Timber.i("OnnxYoloDetector ready ($assetPath, in=$inputSize, classes=${classMap.values})")
+        Timber.i("OnnxYoloDetector ready ($assetPath, in=$inputSize, ep=$ep, classes=${classMap.values})")
     }
 
     /** @return boxes normalised to [input] (after internal resize to [inputSize]). */

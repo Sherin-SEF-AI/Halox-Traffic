@@ -1,6 +1,6 @@
 package com.haloxtraffic.feature.anpr.di
 
-import com.haloxtraffic.feature.anpr.PaddleOcrEngine
+import com.haloxtraffic.feature.anpr.OnnxOcrEngine
 import com.haloxtraffic.feature.anpr.PlateOcrEngine
 import dagger.Binds
 import dagger.Module
@@ -13,5 +13,5 @@ import javax.inject.Singleton
 abstract class AnprModule {
     @Binds
     @Singleton
-    abstract fun bindPlateOcrEngine(impl: PaddleOcrEngine): PlateOcrEngine
+    abstract fun bindPlateOcrEngine(impl: OnnxOcrEngine): PlateOcrEngine
 }
