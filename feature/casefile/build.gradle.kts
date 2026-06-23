@@ -21,6 +21,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    implementation(project(":core:export"))
     implementation(project(":core:designsystem"))
 
     implementation(libs.coroutines.core)

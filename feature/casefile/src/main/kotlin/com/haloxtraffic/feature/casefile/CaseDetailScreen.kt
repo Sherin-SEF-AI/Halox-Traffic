@@ -20,6 +20,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,6 +36,8 @@ import com.haloxtraffic.core.designsystem.component.StatusPill
 import com.haloxtraffic.core.designsystem.component.TelemetryRow
 import com.haloxtraffic.core.designsystem.theme.HaloxTheme
 import com.haloxtraffic.core.designsystem.theme.SignalLevel
+import com.haloxtraffic.core.export.ExportFormat
+import com.haloxtraffic.core.export.ExportShare
 import com.haloxtraffic.core.model.TimeTrust
 import com.haloxtraffic.core.model.ViolationType
 import kotlinx.serialization.decodeFromString
@@ -51,6 +54,7 @@ fun CaseDetailScreen(
     modifier: Modifier = Modifier,
     viewModel: CaseFileViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val case by viewModel.case(caseId).collectAsStateWithLifecycle(initialValue = null)
     val audit by viewModel.audit(caseId).collectAsStateWithLifecycle(initialValue = emptyList())
     val evidence by produceState<EvidencePackageEntity?>(null, caseId) { value = viewModel.evidence(caseId) }
@@ -136,6 +140,20 @@ fun CaseDetailScreen(
         }
 
         PlateCorrection(onApply = { plate, reason -> viewModel.correctPlate(caseId, plate, reason) })
+
+        // Export (§12.6): PDF case file + e-challan bundle, shared via the system chooser.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OperationalButton("Export PDF", {
+                viewModel.export(caseId, ExportFormat.PDF_CASE_FILE) { f ->
+                    ExportShare.share(context, f, ExportShare.mimeFor(ExportFormat.PDF_CASE_FILE))
+                }
+            })
+            OperationalButton("e-Challan bundle", {
+                viewModel.export(caseId, ExportFormat.ECHALLAN_BUNDLE) { f ->
+                    ExportShare.share(context, f, ExportShare.mimeFor(ExportFormat.ECHALLAN_BUNDLE))
+                }
+            })
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OperationalButton("Confirm", { viewModel.confirm(caseId) }, kind = ButtonKind.PRIMARY)

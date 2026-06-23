@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Exported bundles live in cache/exports; sealed media in files/evidence. -->
+    <cache-path name="exports" path="exports/" />
+    <files-path name="evidence" path="evidence/" />
+    <files-path name="captures" path="captures/" />
+</paths>

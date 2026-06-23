@@ -57,7 +57,9 @@ fun HaloxNavHost(navController: NavHostController, modifier: Modifier = Modifier
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(Routes.MAP) { MapScreen() }
+        composable(Routes.MAP) {
+            MapScreen(onOpenCase = { id -> navController.navigate("${Routes.CASE_DETAIL}/$id") })
+        }
         composable(Routes.JUNCTION_CONFIG) {
             JunctionConfigScreen(onBack = { navController.popBackStack() })
         }

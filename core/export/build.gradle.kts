@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:evidence"))
 
+    implementation(libs.androidx.core.ktx) // FileProvider + Bitmap
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coroutines.core)
     implementation(libs.timber)

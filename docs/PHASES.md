@@ -12,7 +12,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 5 | Evidence sealing: seal+persist signed hash-chained cases + immutable store; Case File review | ✅ done (`:core:data` SealingRepository, `:core:evidence` SealedStore, `:feature:casefile`) |
 | 6 | Junction geometry capture (camera-overlay) + Red-Light / Seatbelt / Phone / Lane FSMs behind positioning flags | ✅ done (`:feature:violations`, `:feature:map`) — MapLibre map deferred to Phase 8 |
 | 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ✅ done (`:feature:vlm`) — supply a Gemma `.task` + confirm tasks-genai version |
-| 8 | Reports/export: case-file PDF + e-challan bundle + CSV + analytics + map | ⬜ exporter contract ready (`:core:export`) |
+| 8 | Reports/export: PDF case-file + e-challan ZIP bundle + CSV + analytics + violation map/heatmap | ✅ done (`:core:export`, `:feature:reports`, `:feature:map`) — map is a dependency-free Canvas; MapLibre tiles optional later |
 | 9 | WorkManager sync to the §13 contract; hash-chain self-check; Vahan lookup | ⬜ client contract ready (`:core:sync`) |
 | 10 | Hardening: bystander blur, thermal/battery/storage, full test coverage | ⬜ |
 
@@ -43,6 +43,11 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
   validated, never overwriting a real read). Per-session image budget enforced; DISABLED on LOW/MID.
   Needs a Gemma 3n `.task` asset; confirm the `tasks-genai` version + the multimodal API (isolated to
   `MediaPipeVlmEngine`).
-- MapLibre and ML Kit deps remain commented in their `build.gradle.kts` until their phases.
+- Reports/export (Phase 8): real PDF case-file (PdfDocument), e-challan ZIP bundle (media +
+  metadata.json with hash/signature/chain pointer/public key) and CSV index, shared via FileProvider;
+  analytics (by type, validated/uncertain rate, repeat plates, by hour). The violation map + heatmap is a
+  dependency-free Compose Canvas (offline, lat/lon scatter + density + filters + tap-to-open) — a MapLibre
+  tile basemap can replace the scatter later without changing the data/filters/interaction. ML Kit
+  (bystander blur) lands in Phase 10.
 - The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
   things to confirm at build time.

@@ -98,6 +98,7 @@ class CaseRepository @Inject constructor(
 ) {
     fun observeCases(): Flow<List<ViolationCaseEntity>> = caseDao.observeAll()
     fun observeCase(id: String): Flow<ViolationCaseEntity?> = caseDao.observeById(id)
+    suspend fun caseById(id: String): ViolationCaseEntity? = caseDao.byId(id)
     fun observeByPlate(plate: String): Flow<List<ViolationCaseEntity>> = caseDao.observeByPlate(plate)
     fun observeCount(sessionId: String): Flow<Int> = caseDao.countForSession(sessionId)
     fun observeAudit(caseId: String): Flow<List<PlateAuditEntity>> = plateAuditDao.observeForCase(caseId)

@@ -8,8 +8,13 @@ import com.haloxtraffic.core.data.entity.ViolationCaseEntity
 import com.haloxtraffic.core.data.repository.CaseRepository
 import com.haloxtraffic.core.data.repository.SealingRepository
 import com.haloxtraffic.core.data.settings.SettingsRepository
+import com.haloxtraffic.core.export.EvidenceExporter
+import com.haloxtraffic.core.export.ExportFormat
 import com.haloxtraffic.core.model.CaseStatus
+import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,9 +25,11 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CaseFileViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val caseRepository: CaseRepository,
     private val sealingRepository: SealingRepository,
     private val settingsRepository: SettingsRepository,
+    private val exporter: EvidenceExporter,
 ) : ViewModel() {
 
     val cases: StateFlow<List<ViolationCaseEntity>> =
@@ -41,5 +48,10 @@ class CaseFileViewModel @Inject constructor(
     fun correctPlate(id: String, corrected: String, reason: String) = viewModelScope.launch {
         val officer = settingsRepository.settings.first().officerId.ifBlank { "reviewer" }
         sealingRepository.correctPlate(id, corrected.uppercase().filter { it.isLetterOrDigit() }, officer, reason)
+    }
+
+    /** Export a case (PDF / e-challan bundle) to cache; [onReady] receives the file to share. */
+    fun export(id: String, format: ExportFormat, onReady: (File) -> Unit) = viewModelScope.launch {
+        exporter.exportCase(id, format, File(context.cacheDir, "exports")).onSuccess(onReady)
     }
 }
