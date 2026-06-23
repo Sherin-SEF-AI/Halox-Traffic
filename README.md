@@ -3,11 +3,13 @@
 On-device Indian traffic-violation detection, ANPR, and tamper-evident evidence collection for Android.
 Offline-first, device-tiered, evidence-grade. Codename **VAHAN-EYE**.
 
-> **Build status:** This repository contains the **Phase 0 + Phase 1 foundation** — the full multi-module
-> skeleton, design system, data layer, device tiering, sensors + capture, and the live enforcement HUD.
-> Real-time ML inference (Phase 2+), violation FSMs, ANPR, evidence sealing, VLM, reports and sync wiring
-> are scoped for later phases; their module seams and contracts already exist. See
-> `docs/PHASES.md` for the roadmap.
+> **Build status:** All 11 phases (0–10) are implemented end-to-end: device tiering, CameraX capture,
+> YOLO26 detection, IoU+Kalman tracking, all 8 violation FSMs, ANPR (PaddleOCR), tamper-evident evidence
+> sealing + Case File, junction geometry, Gemma 3n VLM, reports/export (PDF / e-challan / CSV), violation
+> map, offline-first sync + integrity self-check, and hardening (bystander blur, retention, battery). The
+> three on-device ML models (detector / OCR / VLM) are provisioned at runtime — **supply the trained
+> assets** (`docs/MODELS.md`) to enable live inference. See `docs/PHASES.md` for per-phase detail and the
+> flagged dependency/asset confirmations.
 
 ## Requirements
 - **JDK 17**
@@ -41,14 +43,15 @@ Then:
 :core:evidence       SHA-256 + hash-chain + Keystore signing
 :core:export         evidence export (skeleton)
 :core:sync           Retrofit client + WorkManager (client-only)
-:feature:detection   YOLO26 LiteRT detector + model provisioning (skeleton)
-:feature:violations  violation FSM engine (skeleton)
-:feature:anpr        plate OCR pipeline (skeleton)
-:feature:capture     live enforcement HUD (Phase-1 core screen)
-:feature:casefile    case review (skeleton)
-:feature:map         MapLibre violation map (skeleton)
-:feature:reports     reports + analytics (skeleton)
-:feature:settings    settings (skeleton)
+:feature:detection   YOLO26 LiteRT detector + tracking buffer + model provisioning
+:feature:violations  IoU+Kalman tracker + 8 violation FSMs + junction geometry
+:feature:anpr        PaddleOCR plate pipeline (best-frame, CTC, consensus, colour)
+:feature:vlm         Gemma 3n VLM (HIGH tier, off hot path)
+:feature:capture     live enforcement HUD (core screen)
+:feature:casefile    case review + export + audited plate correction
+:feature:map         junction geometry config + violation map/heatmap
+:feature:reports     reports + analytics + CSV export
+:feature:settings    settings (tier, retention, privacy)
 ```
 
 ## ML models

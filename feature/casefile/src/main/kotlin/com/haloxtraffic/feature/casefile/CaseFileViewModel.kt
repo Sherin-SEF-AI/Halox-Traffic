@@ -52,6 +52,7 @@ class CaseFileViewModel @Inject constructor(
 
     /** Export a case (PDF / e-challan bundle) to cache; [onReady] receives the file to share. */
     fun export(id: String, format: ExportFormat, onReady: (File) -> Unit) = viewModelScope.launch {
-        exporter.exportCase(id, format, File(context.cacheDir, "exports")).onSuccess(onReady)
+        val blur = settingsRepository.settings.first().bystanderBlurDefault
+        exporter.exportCase(id, format, File(context.cacheDir, "exports"), blurFaces = blur).onSuccess(onReady)
     }
 }

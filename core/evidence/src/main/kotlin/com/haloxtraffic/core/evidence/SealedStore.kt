@@ -44,4 +44,10 @@ class SealedStore @Inject constructor(
 
     /** Total bytes used by sealed evidence — for the storage-usage indicator (§12.7). */
     fun totalBytes(): Long = root.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+
+    /**
+     * Retention-path deletion (§14) — the ONLY way sealed media is removed, and only after a case has
+     * synced + its integrity confirmed. Not reachable from the UI.
+     */
+    fun purgeCase(caseId: String): Boolean = runCatching { caseDir(caseId).deleteRecursively() }.getOrDefault(false)
 }

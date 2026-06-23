@@ -20,8 +20,11 @@ enum class ExportFormat {
  * defined now; implementations land in Phase 8.
  */
 interface EvidenceExporter {
-    /** Export one case (PDF / e-challan bundle). */
-    suspend fun exportCase(caseId: String, format: ExportFormat, outDir: File): Result<File>
+    /**
+     * Export one case (PDF / e-challan bundle). When [blurFaces] is true, bystander faces in the
+     * exported stills are mosaicked (a derivative copy — the sealed original is untouched).
+     */
+    suspend fun exportCase(caseId: String, format: ExportFormat, outDir: File, blurFaces: Boolean = false): Result<File>
 
     /** Export a CSV index across many cases. */
     suspend fun exportIndex(caseIds: List<String>, outDir: File): Result<File>

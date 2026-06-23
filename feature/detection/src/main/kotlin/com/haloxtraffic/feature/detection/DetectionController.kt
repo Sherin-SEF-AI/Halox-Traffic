@@ -8,6 +8,7 @@ import com.haloxtraffic.core.model.DeviceTier
 import com.haloxtraffic.core.model.InferenceDelegate
 import com.haloxtraffic.core.sensors.camera.FrameAnalyzer
 import com.haloxtraffic.core.sensors.profile.AdaptiveRuntimeController
+import com.haloxtraffic.core.sensors.profile.BatteryMonitor
 import com.haloxtraffic.core.sensors.profile.ThermalMonitor
 import com.haloxtraffic.feature.detection.model.ModelKind
 import com.haloxtraffic.feature.detection.model.ModelProvisioner
@@ -53,6 +54,7 @@ class DetectionController @Inject constructor(
     private val registry: ModelRegistry,
     private val adaptiveRuntime: AdaptiveRuntimeController,
     private val thermalMonitor: ThermalMonitor,
+    private val batteryMonitor: BatteryMonitor,
 ) {
     private val _status = MutableStateFlow(DetectorStatus.IDLE)
     val status: StateFlow<DetectorStatus> = _status.asStateFlow()
@@ -121,7 +123,9 @@ class DetectionController @Inject constructor(
             val pre = preprocessed!!
             val result = detector.detect(pre.bitmap, scoreThreshold = SCORE_THRESHOLD)
 
-            adaptiveRuntime.report(result.inferenceMs, thermalMonitor.headroom())
+            // Treat low-power like thermal pressure so long sessions back off before draining the battery.
+            val pressure = maxOf(thermalMonitor.headroom(), if (batteryMonitor.isLowPower()) LOW_POWER_PRESSURE else 0f)
+            adaptiveRuntime.report(result.inferenceMs, pressure)
 
             val uprightBoxes = pre.transform.invert(result.boxes)
             // Retain the model frame + plate boxes for ANPR cropping; the square bitmap is owned by the
@@ -211,5 +215,6 @@ class DetectionController @Inject constructor(
         const val SCORE_THRESHOLD = 0.25f
         private const val RECENT_FRAMES = 8
         private const val MIN_CROP_PX = 12
+        private const val LOW_POWER_PRESSURE = 0.7f
     }
 }

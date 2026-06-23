@@ -1,6 +1,9 @@
 # Build Phases
 
-This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the seams already created.
+All 11 phases (0–10) are implemented. The app builds in Android Studio and installs via `adb`; the three
+real ML model assets (detector / OCR / VLM) are provisioned at runtime and must be supplied to light up
+live inference (see `MODELS.md`). Not compiled in the authoring environment — confirm the flagged
+dependency versions on first sync.
 
 | Phase | Scope | Status |
 |------|-------|--------|
@@ -14,7 +17,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ✅ done (`:feature:vlm`) — supply a Gemma `.task` + confirm tasks-genai version |
 | 8 | Reports/export: PDF case-file + e-challan ZIP bundle + CSV + analytics + violation map/heatmap | ✅ done (`:core:export`, `:feature:reports`, `:feature:map`) — map is a dependency-free Canvas; MapLibre tiles optional later |
 | 9 | WorkManager sync to the §13 contract; hash-chain self-check; Vahan lookup | ✅ done (`:core:sync`, Sync screen in `:app`) — server-side auth header is a deployment TODO |
-| 10 | Hardening: bystander blur, thermal/battery/storage, full test coverage | ⬜ |
+| 10 | Hardening: bystander face-blur (ML Kit), retention purge, battery-aware throttling, tests | ✅ done (`:core:export`, `:core:data` RetentionManager, `:core:sensors` BatteryMonitor) |
 
 ## What's deliberately not done yet
 - **Detection (Phase 2) is fully implemented but needs a real model asset to light up**: the LiteRT
@@ -55,5 +58,13 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
   shows the pending queue, a "run now" trigger, the hash-chain + signature integrity self-check, storage
   usage and an optional Vahan cross-reference. Attaching the auth token (an OkHttp interceptor) is a
   deployment TODO; the FastAPI server itself is out of scope (client-only, per the agreed plan).
+- Hardening (Phase 10): bystander face-blur (ML Kit, on-device, detection-only) mosaics faces in
+  exported stills on a derivative copy — the sealed original is never modified; enabled by the
+  bystander-blur setting. Retention purge (`RetentionManager` + daily `RetentionWorker`) deletes evidence
+  older than the configured window ONLY for cases that have synced AND still verify (chain + signature) —
+  `retentionDays == 0` never purges, and this is the single audited deletion path (the UI can never delete
+  evidence). Battery-aware throttling: `BatteryMonitor` low-power feeds the adaptive runtime like thermal
+  pressure. Video-clip MP4 encoding remains a deliberate enhancement (the ring buffer holds low-res model
+  frames; full-res rolling H.264 needs device testing) — context stills carry the scene for now.
 - The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
   things to confirm at build time.

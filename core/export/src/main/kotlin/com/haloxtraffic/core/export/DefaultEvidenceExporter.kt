@@ -1,6 +1,7 @@
 package com.haloxtraffic.core.export
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Paint
@@ -36,25 +37,32 @@ class DefaultEvidenceExporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val caseRepository: CaseRepository,
     private val signer: Signer,
+    private val faceBlurrer: FaceBlurrer,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) : EvidenceExporter {
 
     private val json = Json { prettyPrint = true; encodeDefaults = true }
     private val timeFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", Locale.US)
 
-    override suspend fun exportCase(caseId: String, format: ExportFormat, outDir: File): Result<File> =
+    override suspend fun exportCase(caseId: String, format: ExportFormat, outDir: File, blurFaces: Boolean): Result<File> =
         withContext(io) {
             runCatching {
                 val case = caseRepository.caseById(caseId) ?: error("Case not found: $caseId")
                 val pkg = caseRepository.evidenceFor(caseId)
                 outDir.mkdirs()
                 when (format) {
-                    ExportFormat.PDF_CASE_FILE -> writePdf(case, pkg, File(outDir, "case_${caseId}.pdf"))
-                    ExportFormat.ECHALLAN_BUNDLE -> writeBundle(case, pkg, File(outDir, "echallan_${caseId}.zip"))
+                    ExportFormat.PDF_CASE_FILE -> writePdf(case, pkg, File(outDir, "case_${caseId}.pdf"), blurFaces)
+                    ExportFormat.ECHALLAN_BUNDLE -> writeBundle(case, pkg, File(outDir, "echallan_${caseId}.zip"), blurFaces)
                     ExportFormat.CSV_INDEX -> writeCsv(listOf(case), File(outDir, "case_${caseId}.csv"))
                 }
             }.onFailure { Timber.e(it, "exportCase failed") }
         }
+
+    /** Decode a still and optionally mosaic bystander faces for export. */
+    private suspend fun stillBitmap(path: String, blurFaces: Boolean): Bitmap? {
+        val bmp = runCatching { BitmapFactory.decodeFile(path) }.getOrNull() ?: return null
+        return if (blurFaces) faceBlurrer.blurFaces(bmp) else bmp
+    }
 
     override suspend fun exportIndex(caseIds: List<String>, outDir: File): Result<File> = withContext(io) {
         runCatching {
@@ -76,7 +84,8 @@ class DefaultEvidenceExporter @Inject constructor(
         )
     }
 
-    private fun writeBundle(case: ViolationCaseEntity, pkg: EvidencePackageEntity?, out: File): File {
+    private suspend fun writeBundle(case: ViolationCaseEntity, pkg: EvidencePackageEntity?, out: File, blurFaces: Boolean): File {
+        val stills = paths(pkg?.stillPathsJson).toSet()
         ZipOutputStream(out.outputStream().buffered()).use { zip ->
             zip.putNextEntry(ZipEntry("metadata.json"))
             zip.write(json.encodeToString(metadataOf(case, pkg)).toByteArray())
@@ -85,14 +94,24 @@ class DefaultEvidenceExporter @Inject constructor(
                 .map(::File).filter { it.exists() }
                 .forEach { f ->
                     zip.putNextEntry(ZipEntry("media/${f.name}"))
-                    f.inputStream().use { it.copyTo(zip) }
+                    if (blurFaces && f.absolutePath in stills) {
+                        // Stills may show bystanders → export a face-mosaicked derivative.
+                        val blurred = stillBitmap(f.absolutePath, blurFaces = true)
+                        if (blurred != null) {
+                            blurred.compress(Bitmap.CompressFormat.JPEG, 90, zip); blurred.recycle()
+                        } else {
+                            f.inputStream().use { it.copyTo(zip) }
+                        }
+                    } else {
+                        f.inputStream().use { it.copyTo(zip) }
+                    }
                     zip.closeEntry()
                 }
         }
         return out
     }
 
-    private fun writePdf(case: ViolationCaseEntity, pkg: EvidencePackageEntity?, out: File): File {
+    private suspend fun writePdf(case: ViolationCaseEntity, pkg: EvidencePackageEntity?, out: File, blurFaces: Boolean): File {
         val doc = PdfDocument()
         val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create()) // A4 @72dpi
         val canvas = page.canvas
@@ -113,9 +132,9 @@ class DefaultEvidenceExporter @Inject constructor(
         )
         lines.filter { it.isNotEmpty() }.forEach { canvas.drawText(it, 36f, y, text); y += 18f }
 
-        // Embed the first still if present.
+        // Embed the first still if present (face-mosaicked when requested).
         paths(pkg?.stillPathsJson).firstOrNull()?.let { p ->
-            runCatching { BitmapFactory.decodeFile(p) }.getOrNull()?.let { bmp ->
+            stillBitmap(p, blurFaces)?.let { bmp ->
                 val scale = (523f / bmp.width).coerceAtMost(380f / bmp.height)
                 val w = bmp.width * scale
                 val h = bmp.height * scale

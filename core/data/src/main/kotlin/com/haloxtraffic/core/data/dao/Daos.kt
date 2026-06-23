@@ -83,6 +83,14 @@ interface ViolationCaseDao {
 
     @Query("SELECT COUNT(*) FROM violation_case WHERE sessionId = :sessionId")
     fun countForSession(sessionId: String): Flow<Int>
+
+    /** Cases older than [cutoff] — retention candidates (§14). */
+    @Query("SELECT * FROM violation_case WHERE ts < :cutoff")
+    suspend fun olderThan(cutoff: Long): List<ViolationCaseEntity>
+
+    /** Retention-path delete (NOT exposed to the UI). Cascades to package + audit via FK. */
+    @Query("DELETE FROM violation_case WHERE id = :id")
+    suspend fun deleteCase(id: String)
 }
 
 /** Evidence is immutable: insert + read only, no update/delete. */
@@ -132,4 +140,8 @@ interface SyncQueueDao {
 
     @Query("SELECT COUNT(*) FROM sync_queue_item WHERE syncedAt IS NULL")
     fun observePendingCount(): Flow<Int>
+
+    /** Unsynced items for one entity — a case is purgeable only when this is 0 (§14). */
+    @Query("SELECT COUNT(*) FROM sync_queue_item WHERE entityId = :entityId AND syncedAt IS NULL")
+    suspend fun pendingCountFor(entityId: String): Int
 }

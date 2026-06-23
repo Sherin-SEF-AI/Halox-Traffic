@@ -29,7 +29,11 @@ dependencies {
     implementation(libs.androidx.core.ktx) // FileProvider + Bitmap
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coroutines.core)
+    implementation(libs.coroutines.play.services) // await() ML Kit Tasks
     implementation(libs.timber)
+
+    // On-device face detection for bystander privacy blur on export (detection only, no recognition).
+    implementation(libs.mlkit.face.detection)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
