@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.haloxtraffic.core.designsystem.component.ConfidenceTag
 import com.haloxtraffic.core.designsystem.component.PlateReadout
 import com.haloxtraffic.core.designsystem.component.StatusPill
 import com.haloxtraffic.core.designsystem.component.TelemetryRow
 import com.haloxtraffic.core.designsystem.component.ViolationBadge
+import com.haloxtraffic.feature.anpr.OcrStatus
 import com.haloxtraffic.core.designsystem.theme.HaloxTheme
 import com.haloxtraffic.core.designsystem.theme.SignalLevel
 import com.haloxtraffic.core.model.GeoFix
@@ -35,6 +37,7 @@ fun TelemetryHud(state: CaptureUiState, modifier: Modifier = Modifier) {
             )
             gpsPill(state.geo)
             detectorPill(state.detectorStatus)
+            ocrPill(state.ocrStatus)
         }
 
         // Active-violation badges (distinct types currently in view).
@@ -45,7 +48,13 @@ fun TelemetryHud(state: CaptureUiState, modifier: Modifier = Modifier) {
             }
         }
 
-        if (state.lastPlate != null) PlateReadout(state.lastPlate)
+        // Last recognised plate + validation tag.
+        if (state.lastPlate != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PlateReadout(state.lastPlate)
+                ConfidenceTag(state.lastPlateConfidence, state.lastPlateValidated)
+            }
+        }
 
         TelemetryRow("FPS", "%.1f / %d".format(state.fps, state.targetFps), valueEmphasis = true)
         TelemetryRow("VIOLATIONS", state.sessionViolations.toString(), valueEmphasis = state.sessionViolations > 0)
@@ -66,7 +75,17 @@ private fun detectorPill(status: DetectorStatus) {
         DetectorStatus.NO_MODEL, DetectorStatus.ERROR -> SignalLevel.DEGRADED
         else -> SignalLevel.NEUTRAL
     }
-    StatusPill(status.name.replace('_', ' '), level)
+    StatusPill("DET ${status.name.replace('_', ' ')}", level)
+}
+
+@Composable
+private fun ocrPill(status: OcrStatus) {
+    val level = when (status) {
+        OcrStatus.RUNNING -> SignalLevel.CONFIRMED
+        OcrStatus.NO_MODEL, OcrStatus.ERROR -> SignalLevel.DEGRADED
+        else -> SignalLevel.NEUTRAL
+    }
+    StatusPill("OCR ${status.name.replace('_', ' ')}", level)
 }
 
 private fun detectText(state: CaptureUiState): String =

@@ -20,6 +20,9 @@ import com.haloxtraffic.core.model.InferenceDelegate
 import com.haloxtraffic.core.sensors.profile.AdaptiveRuntimeController
 import com.haloxtraffic.core.sensors.profile.DeviceProfiler
 import com.haloxtraffic.core.sensors.time.TimeSource
+import com.haloxtraffic.core.model.PlateRead
+import com.haloxtraffic.feature.anpr.AnprController
+import com.haloxtraffic.feature.anpr.OcrStatus
 import com.haloxtraffic.feature.detection.DetectionController
 import com.haloxtraffic.feature.detection.DetectorStatus
 import com.haloxtraffic.feature.violations.ActiveViolation
@@ -56,7 +59,10 @@ data class CaptureUiState(
     val paused: Boolean = false,
     val hasCameraPermission: Boolean = false,
     val hasLocationPermission: Boolean = false,
-    val lastPlate: String? = null, // populated once ANPR lands (Phase 4)
+    val lastPlate: String? = null,
+    val lastPlateConfidence: Float = 0f,
+    val lastPlateValidated: Boolean = false,
+    val ocrStatus: OcrStatus = OcrStatus.IDLE,
     // Detection (Phase 2)
     val detectorStatus: DetectorStatus = DetectorStatus.IDLE,
     val boxes: List<BoundingBox> = emptyList(),
@@ -81,7 +87,11 @@ class LiveEnforcementViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val detectionController: DetectionController,
     private val violationController: ViolationController,
+    private val anprController: AnprController,
 ) : ViewModel() {
+
+    /** Plate reads keyed by track, retained for evidence sealing (Phase 5). */
+    private val plateResults = mutableMapOf<Long, PlateRead>()
 
     private val _state = MutableStateFlow(CaptureUiState())
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
@@ -105,6 +115,22 @@ class LiveEnforcementViewModel @Inject constructor(
         }
         viewModelScope.launch {
             violationController.committedCount.collect { c -> _state.value = _state.value.copy(sessionViolations = c) }
+        }
+        // On each COMMIT, run ANPR off the hot path: crop plates for the offending track → recognise.
+        viewModelScope.launch {
+            violationController.events.collect { event ->
+                val crops = detectionController.cropPlatesForTrack(event.track.box)
+                val plate = anprController.recognizePlate(crops)
+                plateResults[event.trackId] = plate
+                _state.value = _state.value.copy(
+                    lastPlate = plate.plate,
+                    lastPlateConfidence = plate.confidence,
+                    lastPlateValidated = plate.validated,
+                )
+            }
+        }
+        viewModelScope.launch {
+            anprController.status.collect { s -> _state.value = _state.value.copy(ocrStatus = s) }
         }
     }
 
@@ -142,9 +168,10 @@ class LiveEnforcementViewModel @Inject constructor(
                 thermalHeadroom = p.thermalHeadroom,
                 targetFps = adaptiveRuntime.config.value.targetFps,
             )
-            // Provision + load the detector for this tier (off the hot path). With placeholder model
-            // URLs this resolves to NO_MODEL; supply real assets in ModelRegistry to enable inference.
+            // Provision + load the detector and OCR recognizer for this tier (off the hot path). With
+            // placeholder model URLs these resolve to NO_MODEL; supply real assets in ModelRegistry.
             detectionController.start(tier)
+            anprController.start(tier)
         }
     }
 
@@ -206,6 +233,7 @@ class LiveEnforcementViewModel @Inject constructor(
     fun startSession() {
         if (_state.value.sessionId != null) return
         violationController.reset() // singleton outlives the ViewModel; clear prior-session state
+        plateResults.clear()
         viewModelScope.launch {
             val settings = settingsRepository.settings.first()
             val id = UUID.randomUUID().toString()

@@ -32,8 +32,15 @@ data class LetterboxTransform(
 
     fun invert(boxes: List<BoundingBox>): List<BoundingBox> = boxes.map(::invert)
 
+    /** Map one box from upright-frame-normalised → square-normalised (for cropping the model bitmap). */
+    fun forward(box: BoundingBox): BoundingBox = box.copy(
+        left = fx(box.left), top = fy(box.top), right = fx(box.right), bottom = fy(box.bottom),
+    )
+
     private fun nx(n: Float): Float = (((n * inputSize) - offsetX) / contentW).coerceIn(0f, 1f)
     private fun ny(n: Float): Float = (((n * inputSize) - offsetY) / contentH).coerceIn(0f, 1f)
+    private fun fx(n: Float): Float = ((n * contentW + offsetX) / inputSize).coerceIn(0f, 1f)
+    private fun fy(n: Float): Float = ((n * contentH + offsetY) / inputSize).coerceIn(0f, 1f)
 
     companion object {
         /** Compute the aspect-preserving letterbox of an [uprightW]×[uprightH] frame into [inputSize]². */

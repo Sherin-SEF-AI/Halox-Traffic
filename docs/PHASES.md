@@ -8,7 +8,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 1 | CameraX preview + analysis + capture, ring buffer, location/IMU/time Flows, live HUD | ✅ done |
 | 2 | YOLO26 LiteRT detector + NMS-free decoder + delegate fallback + live overlay + per-stage latency | ✅ done (`:feature:detection`) — supply a real `.tflite` + confirm output layout to go live |
 | 3 | IoU+Kalman tracker + direction estimation; No-Helmet / Triple-Riding / Wrong-Way / No-Plate FSMs + live overlay/haptic | ✅ done (`:feature:violations`) — committed cases are in-memory until Phase 5 sealing |
-| 4 | ANPR: plate detect + best-frame + PaddleOCR + correction + validation + consensus | ⬜ validator/corrector/consensus done; recognizer pending (`:feature:anpr`) |
+| 4 | ANPR: plate crop + best-frame + PaddleOCR (CTC) + correction + validation + consensus + colour | ✅ done (`:feature:anpr`) — supply a real PP-OCRv5 `.tflite` + confirm charset/blank to go live |
 | 5 | Evidence sealing: package builder + hash-chain + Keystore signing + sealed store; Case File | ⬜ crypto done (`:core:evidence`); wiring pending |
 | 6 | Junction config (stop-line / signal ROI / lanes) on MapLibre; remaining FSMs | ⬜ |
 | 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ⬜ |
@@ -25,7 +25,11 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 - Tracking + the four high-confidence FSMs (Phase 3) are real and unit-tested; COMMITs are in-memory
   (haptic + red overlay + session count) and get sealed to evidence in Phase 5. They light up once the
   detector has a real model feeding boxes. `plateConformant` stays null until ANPR (Phase 4) reads plates.
-- OCR recognizer (Phase 4) still pending — the validator/corrector/consensus are done.
+- ANPR (Phase 4) is wired end-to-end: on COMMIT the detector buffers recent frames, crops the
+  offending vehicle's plate, ranks by sharpness, runs the PP-OCRv5 CTC recognizer on the top-N, fuses
+  via consensus → correction → validation, and classifies plate colour. Needs a real PP-OCRv5 `.tflite`
+  (confirm input H×W, channel order, character dictionary + blank index) to produce reads; until then
+  the engine stays `NO_MODEL` and returns explicit `unreadable` (never a fabricated plate).
 - MediaPipe (VLM), MapLibre and ML Kit deps remain commented in their `build.gradle.kts` until their phases.
 - The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
   things to confirm at build time.

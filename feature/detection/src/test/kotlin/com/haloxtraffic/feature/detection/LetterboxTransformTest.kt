@@ -46,4 +46,16 @@ class LetterboxTransformTest {
         assertThat(inv.left).isAtLeast(0f)
         assertThat(inv.bottom).isAtMost(1f)
     }
+
+    @Test fun `forward then invert round-trips a content-region box`() {
+        val t = LetterboxTransform.forFrame(1920, 1080, 640)
+        // A box well inside the content region (upright-normalised).
+        val upright = BoundingBox(0.3f, 0.45f, 0.5f, 0.55f, 0.9f, 8)
+        val square = t.forward(upright)
+        val back = t.invert(square)
+        assertThat(back.left).isWithin(1e-3f).of(upright.left)
+        assertThat(back.top).isWithin(1e-3f).of(upright.top)
+        assertThat(back.right).isWithin(1e-3f).of(upright.right)
+        assertThat(back.bottom).isWithin(1e-3f).of(upright.bottom)
+    }
 }

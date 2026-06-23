@@ -18,20 +18,29 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = libs.versions.javaTarget.get() }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
     implementation(project(":core:model"))
+    // ANPR provisions the OCR model via the shared provisioner/registry that live in :feature:detection.
+    implementation(project(":feature:detection"))
 
+    implementation(libs.androidx.core.ktx)
     implementation(libs.coroutines.core)
     implementation(libs.timber)
+
+    // PaddleOCR PP-OCRv5 recognizer runs on the same TFLite/LiteRT runtime as the detector (CTC/SVTR).
+    implementation(libs.litert)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
-    // TODO(Phase 4): bring PaddleOCR PP-OCRv5 runtime online (Paddle-Lite or ONNX/LiteRT) after
-    // confirming the export path that runs reliably across tiers.
-
     testImplementation(libs.junit)
     testImplementation(libs.truth)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }

@@ -30,6 +30,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":feature:detection"))
     implementation(project(":feature:violations"))
+    implementation(project(":feature:anpr"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.coroutines.core)

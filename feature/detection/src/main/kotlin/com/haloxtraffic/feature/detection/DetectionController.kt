@@ -1,6 +1,8 @@
 package com.haloxtraffic.feature.detection
 
+import android.graphics.Bitmap
 import com.haloxtraffic.core.model.BoundingBox
+import com.haloxtraffic.core.model.DetectionClass
 import com.haloxtraffic.core.model.DetectionConfig
 import com.haloxtraffic.core.model.DeviceTier
 import com.haloxtraffic.core.model.InferenceDelegate
@@ -13,6 +15,7 @@ import com.haloxtraffic.feature.detection.model.ModelRegistry
 import com.haloxtraffic.feature.detection.model.ProvisionState
 import com.haloxtraffic.feature.detection.runtime.Detector
 import com.haloxtraffic.feature.detection.runtime.FramePreprocessor
+import com.haloxtraffic.feature.detection.runtime.LetterboxTransform
 import com.haloxtraffic.feature.detection.runtime.PreprocessedFrame
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,6 +66,11 @@ class DetectionController @Inject constructor(
     private var config: DetectionConfig = DetectionConfig.forTier(DeviceTier.LOW)
     private var lastFrameNs = 0L
 
+    /** Recent square model frames retained for plate cropping on COMMIT (§7B best-frame selection). */
+    private class RecentFrame(val squareBitmap: Bitmap, val uprightPlateBoxes: List<BoundingBox>, val transform: LetterboxTransform)
+    private val recent = ArrayDeque<RecentFrame>()
+    private val recentLock = Any()
+
     /**
      * Provision + load the detector for [tier]. Returns true when ready to run. With placeholder model
      * URLs this resolves to [DetectorStatus.NO_MODEL] (download fails) — supply real assets in
@@ -112,12 +120,16 @@ class DetectionController @Inject constructor(
             } / 1_000_000
             val pre = preprocessed!!
             val result = detector.detect(pre.bitmap, scoreThreshold = SCORE_THRESHOLD)
-            pre.bitmap.recycle()
 
             adaptiveRuntime.report(result.inferenceMs, thermalMonitor.headroom())
 
+            val uprightBoxes = pre.transform.invert(result.boxes)
+            // Retain the model frame + plate boxes for ANPR cropping; the square bitmap is owned by the
+            // buffer now (recycled on eviction).
+            retainFrame(pre.bitmap, uprightBoxes, pre.transform)
+
             _frames.value = DetectionFrame(
-                boxes = pre.transform.invert(result.boxes),
+                boxes = uprightBoxes,
                 uprightWidth = pre.uprightWidth,
                 uprightHeight = pre.uprightHeight,
                 preprocessMs = preprocessMs,
@@ -133,9 +145,56 @@ class DetectionController @Inject constructor(
 
     fun stop() {
         detector.close()
+        clearRecent()
         _frames.value = null
         lastFrameNs = 0L
         _status.value = DetectorStatus.IDLE
+    }
+
+    private fun retainFrame(bitmap: Bitmap, uprightBoxes: List<BoundingBox>, transform: LetterboxTransform) {
+        val plateBoxes = uprightBoxes.filter { DetectionClass.fromId(it.classId) == DetectionClass.PLATE }
+        synchronized(recentLock) {
+            recent.addLast(RecentFrame(bitmap, plateBoxes, transform))
+            while (recent.size > RECENT_FRAMES) recent.removeFirst().squareBitmap.recycle()
+        }
+    }
+
+    private fun clearRecent() = synchronized(recentLock) {
+        recent.forEach { it.squareBitmap.recycle() }
+        recent.clear()
+    }
+
+    /**
+     * Crop plate candidates for a committed violation (§7A/B): over the buffered frames, take plate
+     * detections inside [trackBox] (upright-normalised), map them into the square model bitmap and crop.
+     * Returns newest-first, up to [maxCandidates]. The caller (ANPR) ranks them by sharpness.
+     */
+    fun cropPlatesForTrack(trackBox: BoundingBox, maxCandidates: Int = 12): List<Bitmap> {
+        val crops = ArrayList<Bitmap>(maxCandidates)
+        synchronized(recentLock) {
+            for (frame in recent.reversed()) {
+                for (plate in frame.uprightPlateBoxes) {
+                    if (plate.centerX !in trackBox.left..trackBox.right) continue
+                    if (plate.centerY !in trackBox.top..trackBox.bottom) continue
+                    cropSquare(frame.squareBitmap, frame.transform.forward(plate))?.let { crops += it }
+                    if (crops.size >= maxCandidates) return crops
+                }
+            }
+        }
+        return crops
+    }
+
+    /** Crop a square-normalised box (with a small margin) from [src] into a new bitmap. */
+    private fun cropSquare(src: Bitmap, squareBox: BoundingBox): Bitmap? {
+        val margin = 0.06f
+        val l = ((squareBox.left - margin) * src.width).toInt().coerceIn(0, src.width - 1)
+        val t = ((squareBox.top - margin) * src.height).toInt().coerceIn(0, src.height - 1)
+        val r = ((squareBox.right + margin) * src.width).toInt().coerceIn(l + 1, src.width)
+        val b = ((squareBox.bottom + margin) * src.height).toInt().coerceIn(t + 1, src.height)
+        val w = r - l
+        val h = b - t
+        if (w < MIN_CROP_PX || h < MIN_CROP_PX) return null
+        return Bitmap.createBitmap(src, l, t, w, h)
     }
 
     /** Cadence cap: skip frames arriving faster than the current target FPS budget. */
@@ -150,5 +209,7 @@ class DetectionController @Inject constructor(
 
     companion object {
         const val SCORE_THRESHOLD = 0.25f
+        private const val RECENT_FRAMES = 8
+        private const val MIN_CROP_PX = 12
     }
 }
