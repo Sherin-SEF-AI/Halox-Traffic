@@ -37,13 +37,20 @@ class CompositeDetector @Inject constructor(
         return activeDelegate!!
     }
 
+    private var frame = 0L
+    private var lastPlates = emptyList<com.haloxtraffic.core.model.BoundingBox>()
+
     override fun detect(input: Bitmap, scoreThreshold: Float): DetectionResult {
         val cocoResult = coco.detect(input, scoreThreshold)
-        var plateBoxes = emptyList<com.haloxtraffic.core.model.BoundingBox>()
-        val ns = measureNanoTime { plateBoxes = plate.detect(input) }
+        // Plate model is heavier; run it every Nth frame and reuse the last result in between.
+        var plateMs = 0L
+        if (plate.isReady() && frame++ % PLATE_EVERY == 0L) {
+            plateMs = measureNanoTime { lastPlates = plate.detect(input) } / 1_000_000
+            if (lastPlates.isNotEmpty()) Timber.d("Plate detected: ${lastPlates.size}")
+        }
         return cocoResult.copy(
-            boxes = cocoResult.boxes + plateBoxes,
-            inferenceMs = cocoResult.inferenceMs + ns / 1_000_000,
+            boxes = cocoResult.boxes + lastPlates,
+            inferenceMs = cocoResult.inferenceMs + plateMs,
         )
     }
 
@@ -55,5 +62,6 @@ class CompositeDetector @Inject constructor(
 
     private companion object {
         const val PLATE_INPUT = 640
+        const val PLATE_EVERY = 3L // run the plate model on 1 in 3 frames to keep cadence up
     }
 }
