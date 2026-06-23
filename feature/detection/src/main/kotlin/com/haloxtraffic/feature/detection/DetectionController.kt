@@ -68,6 +68,9 @@ class DetectionController @Inject constructor(
     /** Detection classes the loaded model can emit — used to gate which violations run. */
     val supportedClasses: Set<DetectionClass> get() = detector.supportedClasses
 
+    /** Enable/disable the optional plate + helmet models at runtime (from settings). */
+    fun setExtraDetectors(plate: Boolean, helmet: Boolean) = detector.setExtraDetectors(plate, helmet)
+
     private var config: DetectionConfig = DetectionConfig.forTier(DeviceTier.LOW)
     private var lastFrameNs = 0L
 

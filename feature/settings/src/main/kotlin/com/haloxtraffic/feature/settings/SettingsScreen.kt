@@ -24,6 +24,7 @@ import com.haloxtraffic.core.designsystem.component.StatusPill
 import com.haloxtraffic.core.designsystem.theme.HaloxTheme
 import com.haloxtraffic.core.designsystem.theme.SignalLevel
 import com.haloxtraffic.core.model.DeviceTier
+import com.haloxtraffic.core.model.ViolationType
 
 /**
  * Settings (§12.8). Phase-1 surfaces the wired controls: device-tier override, bystander-blur default,
@@ -64,6 +65,31 @@ fun SettingsScreen(
         }
 
         HaloxCard {
+            Text("VIOLATION DETECTION", style = HaloxTheme.typography.labelMicro, color = HaloxTheme.colors.inkFaint)
+            Text(
+                "Turn individual violations on or off. A type still only fires when the device's models and " +
+                    "camera position support it; disabling one also skips its detector to save battery.",
+                style = HaloxTheme.typography.body,
+                color = HaloxTheme.colors.inkMuted,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            val disabled = settings?.disabledViolations ?: emptySet()
+            ViolationType.entries.forEachIndexed { index, type ->
+                HairlineDivider(Modifier.padding(vertical = 8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(type.displayName, style = HaloxTheme.typography.label, color = HaloxTheme.colors.ink)
+                        Text(violationHint(type), style = HaloxTheme.typography.body, color = HaloxTheme.colors.inkMuted)
+                    }
+                    Switch(
+                        checked = type !in disabled,
+                        onCheckedChange = { viewModel.setViolationEnabled(type, it) },
+                    )
+                }
+            }
+        }
+
+        HaloxCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.padding(end = 12.dp)) {
                     Text("Blur bystanders in exports", style = HaloxTheme.typography.label, color = HaloxTheme.colors.ink)
@@ -96,4 +122,16 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+/** Short, honest hint about what a violation needs to actually fire. */
+private fun violationHint(type: ViolationType): String = when (type) {
+    ViolationType.NO_HELMET -> "Runs the helmet model on motorcycle riders"
+    ViolationType.TRIPLE_RIDING -> "Counts riders on a motorcycle"
+    ViolationType.WRONG_WAY -> "Vehicles moving against approved flow"
+    ViolationType.PLATE_MISSING_OR_OBSCURED -> "Runs number-plate detection (also feeds plate reading)"
+    ViolationType.RED_LIGHT_JUMP -> "Needs a configured junction with stop-line + signal in view"
+    ViolationType.NO_SEATBELT -> "Needs a mounted, front-facing view"
+    ViolationType.PHONE_USE -> "Needs a mounted, front-facing view"
+    ViolationType.LANE_VIOLATION -> "Needs configured lane boundaries"
 }

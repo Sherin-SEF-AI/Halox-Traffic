@@ -43,6 +43,16 @@ class CompositeDetector @Inject constructor(
             (if (plate.isReady()) setOf(DetectionClass.PLATE) else emptySet()) +
             (if (helmet.isReady()) setOf(DetectionClass.HELMET, DetectionClass.NO_HELMET) else emptySet())
 
+    // Runtime gates (set from settings): skip a loaded model when its violation is turned off.
+    @Volatile private var plateEnabled = true
+    @Volatile private var helmetEnabled = true
+
+    override fun setExtraDetectors(plate: Boolean, helmet: Boolean) {
+        plateEnabled = plate
+        helmetEnabled = helmet
+        Timber.i("Extra detectors → plate=$plate helmet=$helmet")
+    }
+
     override fun isReady(): Boolean = coco.isReady()
 
     override fun init(config: DetectionConfig): InferenceDelegate {
@@ -58,7 +68,8 @@ class CompositeDetector @Inject constructor(
     override fun detect(input: Bitmap, scoreThreshold: Float): DetectionResult {
         val cocoResult = coco.detect(input, scoreThreshold)
         var extraMs = 0L
-        if ((plate.isReady() || helmet.isReady()) && frame++ % EVERY == 0L) {
+        val anyExtra = (plateEnabled && plate.isReady()) || (helmetEnabled && helmet.isReady())
+        if (anyExtra && frame++ % EVERY == 0L) {
             extraMs = measureNanoTime { lastExtra = runOnCrops(input, cocoResult.boxes) } / 1_000_000
         }
         return cocoResult.copy(
@@ -75,7 +86,7 @@ class CompositeDetector @Inject constructor(
             .take(MAX_VEHICLES)
 
         // Plate: run on every vehicle crop.
-        if (plate.isReady()) {
+        if (plateEnabled && plate.isReady()) {
             for (v in vehicles) cropRegion(frameBmp, v)?.let { (bmp, region) ->
                 plate.detect(bmp).forEach { out += remap(it, region) }
                 bmp.recycle()
@@ -86,7 +97,7 @@ class CompositeDetector @Inject constructor(
         // head containers), expanded slightly upward for head margin.
         val motos = vehicles.filter { DetectionClass.fromId(it.classId) == DetectionClass.MOTORCYCLE }
         var riders = 0
-        if (helmet.isReady() && motos.isNotEmpty()) {
+        if (helmetEnabled && helmet.isReady() && motos.isNotEmpty()) {
             val persons = cocoBoxes.filter { DetectionClass.fromId(it.classId) == DetectionClass.PERSON }
                 .filter { p -> motos.any { overlaps(it, p) } }
                 .sortedByDescending { it.area }

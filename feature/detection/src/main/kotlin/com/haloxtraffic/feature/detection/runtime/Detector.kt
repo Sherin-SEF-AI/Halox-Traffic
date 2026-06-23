@@ -28,5 +28,12 @@ interface Detector {
     /** Run inference on a preprocessed square [input] bitmap → boxes (model-input-normalised). */
     fun detect(input: Bitmap, scoreThreshold: Float = 0.4f): DetectionResult
 
+    /**
+     * Enable/disable the optional secondary models at runtime (perf + user choice). The base vehicle/
+     * person detector always runs; this only gates the heavier plate/helmet crop models. No-op for
+     * detectors without those stages.
+     */
+    fun setExtraDetectors(plate: Boolean, helmet: Boolean) {}
+
     fun close()
 }

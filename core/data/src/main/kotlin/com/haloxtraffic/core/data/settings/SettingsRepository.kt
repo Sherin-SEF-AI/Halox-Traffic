@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.haloxtraffic.core.model.DeviceTier
+import com.haloxtraffic.core.model.ViolationType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -21,7 +22,12 @@ data class AppSettings(
     val bystanderBlurDefault: Boolean,
     /** Days to retain sealed evidence after successful sync; 0 = never auto-purge. */
     val retentionDays: Int,
-)
+    /** Violation types the user has switched OFF. Anything not listed is enabled (new types default on). */
+    val disabledViolations: Set<ViolationType>,
+) {
+    /** True if [type] should run (subject also to detector capability + geometry). */
+    fun isViolationEnabled(type: ViolationType): Boolean = type !in disabledViolations
+}
 
 @Singleton
 class SettingsRepository @Inject constructor(
@@ -34,6 +40,10 @@ class SettingsRepository @Inject constructor(
             jurisdictionId = p[KEY_JURISDICTION_ID],
             bystanderBlurDefault = p[KEY_BYSTANDER_BLUR] ?: true,
             retentionDays = p[KEY_RETENTION_DAYS]?.toIntOrNull() ?: 0,
+            disabledViolations = p[KEY_DISABLED_VIOLATIONS].orEmpty()
+                .split(',').filter { it.isNotBlank() }
+                .mapNotNull { runCatching { ViolationType.valueOf(it) }.getOrNull() }
+                .toSet(),
         )
     }
 
@@ -58,11 +68,22 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[KEY_RETENTION_DAYS] = days.toString() }
     }
 
+    /** Turn a violation type on/off. Persisted as the set of disabled types. */
+    suspend fun setViolationEnabled(type: ViolationType, enabled: Boolean) {
+        dataStore.edit { p ->
+            val current = p[KEY_DISABLED_VIOLATIONS].orEmpty()
+                .split(',').filter { it.isNotBlank() }.toMutableSet()
+            if (enabled) current.remove(type.name) else current.add(type.name)
+            p[KEY_DISABLED_VIOLATIONS] = current.joinToString(",")
+        }
+    }
+
     private companion object {
         val KEY_TIER_OVERRIDE = stringPreferencesKey("tier_override")
         val KEY_OFFICER_ID = stringPreferencesKey("officer_id")
         val KEY_JURISDICTION_ID = stringPreferencesKey("jurisdiction_id")
         val KEY_BYSTANDER_BLUR = booleanPreferencesKey("bystander_blur_default")
         val KEY_RETENTION_DAYS = stringPreferencesKey("retention_days")
+        val KEY_DISABLED_VIOLATIONS = stringPreferencesKey("disabled_violations")
     }
 }

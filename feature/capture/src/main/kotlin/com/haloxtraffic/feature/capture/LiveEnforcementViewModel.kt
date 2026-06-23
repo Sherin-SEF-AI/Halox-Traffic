@@ -342,9 +342,14 @@ class LiveEnforcementViewModel @Inject constructor(
             // actually feed (and that the geometry/mount support) — so nothing false-fires.
             val geometry = settings.jurisdictionId
                 ?.let { jurisdictionRepository.junctionGeometryFor(it) } ?: JunctionGeometry.EMPTY
-            violationController.configure(
-                geometry,
-                enabledViolations(detectionController.supportedClasses, geometry, _state.value.mountMode),
+            // Capability ∩ geometry/mount, then minus whatever the user switched off in Settings.
+            val enabled = enabledViolations(detectionController.supportedClasses, geometry, _state.value.mountMode)
+                .filter { settings.isViolationEnabled(it) }.toSet()
+            violationController.configure(geometry, enabled)
+            // Skip the heavier plate/helmet models entirely when their violation is off (perf + user choice).
+            detectionController.setExtraDetectors(
+                plate = ViolationType.PLATE_MISSING_OR_OBSCURED in enabled,
+                helmet = ViolationType.NO_HELMET in enabled,
             )
 
             sessionRepository.start(

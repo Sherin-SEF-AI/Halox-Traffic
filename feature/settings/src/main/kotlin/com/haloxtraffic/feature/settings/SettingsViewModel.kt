@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.haloxtraffic.core.data.settings.AppSettings
 import com.haloxtraffic.core.data.settings.SettingsRepository
 import com.haloxtraffic.core.model.DeviceTier
+import com.haloxtraffic.core.model.ViolationType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,4 +25,6 @@ class SettingsViewModel @Inject constructor(
     fun setBystanderBlur(enabled: Boolean) = viewModelScope.launch { repository.setBystanderBlurDefault(enabled) }
     fun setOfficer(id: String) = viewModelScope.launch { repository.setOfficer(id) }
     fun setRetentionDays(days: Int) = viewModelScope.launch { repository.setRetentionDays(days) }
+    fun setViolationEnabled(type: ViolationType, enabled: Boolean) =
+        viewModelScope.launch { repository.setViolationEnabled(type, enabled) }
 }
