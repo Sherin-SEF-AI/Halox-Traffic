@@ -3,7 +3,7 @@ package com.haloxtraffic.feature.detection.di
 import com.haloxtraffic.core.sensors.profile.HardwareDelegateProbe
 import com.haloxtraffic.feature.detection.runtime.Detector
 import com.haloxtraffic.feature.detection.runtime.LiteRtDelegateProbe
-import com.haloxtraffic.feature.detection.runtime.LiteRtDetector
+import com.haloxtraffic.feature.detection.runtime.MediaPipeObjectDetector
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -25,5 +25,5 @@ abstract class DetectionModule {
 
     @Binds
     @Singleton
-    abstract fun bindDetector(impl: LiteRtDetector): Detector
+    abstract fun bindDetector(impl: MediaPipeObjectDetector): Detector
 }

@@ -35,8 +35,11 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
-    // LiteRT (Google AI Edge) — runtime + GPU delegate. Classes remain under org.tensorflow.lite.*.
-    // CONFIRM the artifact versions resolve, then confirm the YOLO26 export's output tensor layout.
+    // Active detector: MediaPipe Tasks Vision ObjectDetector running a bundled EfficientDet-Lite0
+    // (COCO) model — real on-device detection out of the box.
+    implementation(libs.mediapipe.tasks.vision)
+
+    // LiteRT path (kept for a custom YOLO26 export): runtime + GPU delegate, org.tensorflow.lite.*.
     implementation(libs.litert)
     implementation(libs.litert.gpu)
 

@@ -62,8 +62,11 @@ class DetectionController @Inject constructor(
     private val _frames = MutableStateFlow<DetectionFrame?>(null)
     val frames: StateFlow<DetectionFrame?> = _frames.asStateFlow()
 
-    /** Detector class id → label, for overlay/HUD. */
+    /** Detector class id → label, for overlay/HUD (canonical taxonomy order). */
     val labels: List<String> = registry.detectorClasses
+
+    /** Detection classes the loaded model can emit — used to gate which violations run. */
+    val supportedClasses: Set<DetectionClass> get() = detector.supportedClasses
 
     private var config: DetectionConfig = DetectionConfig.forTier(DeviceTier.LOW)
     private var lastFrameNs = 0L
@@ -74,34 +77,13 @@ class DetectionController @Inject constructor(
     private val recentLock = Any()
 
     /**
-     * Provision + load the detector for [tier]. Returns true when ready to run. With placeholder model
-     * URLs this resolves to [DetectorStatus.NO_MODEL] (download fails) — supply real assets in
-     * [ModelRegistry] to enable live inference.
+     * Load the detector for [tier]. The active detector runs a bundled EfficientDet-Lite0 model, so it
+     * works out of the box (no download). Returns true when ready.
      */
     suspend fun start(tier: DeviceTier): Boolean {
         config = DetectionConfig.forTier(tier)
-        val spec = registry.specsFor(config).first { it.kind == ModelKind.DETECTOR }
-
-        _status.value = DetectorStatus.PROVISIONING
-        var modelFile: java.io.File? = null
-        provisioner.provision(spec).collect { state ->
-            when (state) {
-                is ProvisionState.Ready -> modelFile = state.file
-                is ProvisionState.Cached -> modelFile = state.file
-                is ProvisionState.Failed -> {
-                    Timber.w("Detector model not available: ${state.reason}")
-                    _status.value = DetectorStatus.NO_MODEL
-                }
-                else -> Unit
-            }
-        }
-        val file = modelFile ?: run {
-            if (_status.value != DetectorStatus.NO_MODEL) _status.value = DetectorStatus.NO_MODEL
-            return false
-        }
-
         _status.value = DetectorStatus.LOADING
-        return runCatching { detector.init(file, spec, config) }
+        return runCatching { detector.init(config) }
             .onSuccess { _status.value = DetectorStatus.RUNNING }
             .onFailure {
                 Timber.e(it, "Detector init failed")

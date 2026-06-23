@@ -74,12 +74,13 @@ class ViolationController @Inject constructor() {
     }
 
     /**
-     * Apply a junction's geometry and enable the viewpoint-dependent violations it supports (§6
-     * positioning flag). Call at session start / when the junction changes.
+     * Apply a junction's geometry and the full set of violation types to run this session (§6). The
+     * caller derives [enabledTypes] from both the junction geometry (positioning flag) and the detector's
+     * actual capabilities, so violations whose cues the model can't produce never fire.
      */
-    fun configure(geometry: JunctionGeometry, enabledViewpointTypes: Set<ViolationType>) {
+    fun configure(geometry: JunctionGeometry, enabledTypes: Set<ViolationType>) {
         this.geometry = geometry
-        this.enabledTypes = ViolationEngine.DEFAULT_TYPES + enabledViewpointTypes
+        this.enabledTypes = enabledTypes
         builder.geometry = geometry
         engine = ViolationEngine(thresholds, enabledTypes)
     }

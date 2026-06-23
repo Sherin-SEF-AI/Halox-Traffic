@@ -12,6 +12,7 @@ import com.haloxtraffic.core.data.repository.SealingRepository
 import com.haloxtraffic.core.data.repository.SessionRepository
 import com.haloxtraffic.core.data.settings.SettingsRepository
 import com.haloxtraffic.core.evidence.SealedStore
+import com.haloxtraffic.core.model.DetectionClass
 import com.haloxtraffic.core.model.JunctionGeometry
 import com.haloxtraffic.core.model.ViolationType
 import com.haloxtraffic.core.model.DeviceProfile
@@ -337,10 +338,14 @@ class LiveEnforcementViewModel @Inject constructor(
             val settings = settingsRepository.settings.first()
             val id = UUID.randomUUID().toString()
 
-            // Apply this jurisdiction's junction geometry + enable the viewpoint violations it supports.
+            // Apply this jurisdiction's junction geometry + enable only the violations the detector can
+            // actually feed (and that the geometry/mount support) — so nothing false-fires.
             val geometry = settings.jurisdictionId
                 ?.let { jurisdictionRepository.junctionGeometryFor(it) } ?: JunctionGeometry.EMPTY
-            violationController.configure(geometry, enabledViewpointTypes(geometry, _state.value.mountMode))
+            violationController.configure(
+                geometry,
+                enabledViolations(detectionController.supportedClasses, geometry, _state.value.mountMode),
+            )
 
             sessionRepository.start(
                 SessionEntity(
@@ -360,17 +365,31 @@ class LiveEnforcementViewModel @Inject constructor(
         }
     }
 
-    /** Enable viewpoint-dependent violations only where geometry / mount support them (§6 positioning flag). */
-    private fun enabledViewpointTypes(geometry: JunctionGeometry, mountMode: MountMode): Set<ViolationType> =
-        buildSet {
-            if (geometry.supportsRedLight) add(ViolationType.RED_LIGHT_JUMP)
-            if (geometry.supportsLane) add(ViolationType.LANE_VIOLATION)
-            // Seatbelt / phone need a stable frontal view — only on a mounted device.
-            if (mountMode != MountMode.HANDHELD) {
-                add(ViolationType.NO_SEATBELT)
-                add(ViolationType.PHONE_USE)
-            }
+    /**
+     * The violations to run = those whose detection cues the loaded model can actually produce, AND
+     * whose geometry/mount preconditions hold (§6 positioning flag). With the bundled COCO detector this
+     * resolves to Wrong-Way + Triple-Riding (+ Lane if boundaries are configured); helmet/plate/seatbelt/
+     * phone/red-light light up only when a model that emits those classes is supplied.
+     */
+    private fun enabledViolations(
+        supported: Set<DetectionClass>,
+        geometry: JunctionGeometry,
+        mountMode: MountMode,
+    ): Set<ViolationType> = buildSet {
+        val hasVehicle = supported.any { it.isVehicle }
+        if (hasVehicle) add(ViolationType.WRONG_WAY)
+        if (DetectionClass.MOTORCYCLE in supported && DetectionClass.PERSON in supported) {
+            add(ViolationType.TRIPLE_RIDING)
         }
+        if (DetectionClass.NO_HELMET in supported) add(ViolationType.NO_HELMET)
+        if (DetectionClass.PLATE in supported) add(ViolationType.PLATE_MISSING_OR_OBSCURED)
+        if (geometry.supportsRedLight && DetectionClass.TRAFFIC_LIGHT_RED in supported) {
+            add(ViolationType.RED_LIGHT_JUMP)
+        }
+        if (geometry.supportsLane && hasVehicle) add(ViolationType.LANE_VIOLATION)
+        if (mountMode != MountMode.HANDHELD && DetectionClass.SEATBELT in supported) add(ViolationType.NO_SEATBELT)
+        if (mountMode != MountMode.HANDHELD && DetectionClass.PHONE in supported) add(ViolationType.PHONE_USE)
+    }
 
     fun togglePause() {
         _state.value = _state.value.copy(paused = !_state.value.paused)
