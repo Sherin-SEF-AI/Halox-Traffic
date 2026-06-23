@@ -6,6 +6,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.haloxtraffic.feature.capture.LiveEnforcementScreen
+import com.haloxtraffic.feature.casefile.CaseDetailScreen
 import com.haloxtraffic.feature.casefile.CaseFileScreen
 import com.haloxtraffic.feature.map.MapScreen
 import com.haloxtraffic.feature.reports.ReportsScreen
@@ -19,6 +20,7 @@ object Routes {
     const val HOME = "home"
     const val LIVE = "live"
     const val CASES = "cases"
+    const val CASE_DETAIL = "case_detail"
     const val MAP = "map"
     const val REPORTS = "reports"
     const val SETTINGS = "settings"
@@ -44,7 +46,15 @@ fun HaloxNavHost(navController: NavHostController, modifier: Modifier = Modifier
         composable(Routes.LIVE) {
             LiveEnforcementScreen(onSessionEnded = { navController.popBackStack() })
         }
-        composable(Routes.CASES) { CaseFileScreen() }
+        composable(Routes.CASES) {
+            CaseFileScreen(onOpenCase = { id -> navController.navigate("${Routes.CASE_DETAIL}/$id") })
+        }
+        composable("${Routes.CASE_DETAIL}/{caseId}") { entry ->
+            CaseDetailScreen(
+                caseId = entry.arguments?.getString("caseId").orEmpty(),
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(Routes.MAP) { MapScreen() }
         composable(Routes.REPORTS) { ReportsScreen() }
         composable(Routes.SETTINGS) { SettingsScreen() }

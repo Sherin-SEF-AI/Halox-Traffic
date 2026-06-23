@@ -6,8 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.camera.core.Preview
 import com.haloxtraffic.core.data.entity.SessionEntity
+import com.haloxtraffic.core.data.repository.CaseDraft
+import com.haloxtraffic.core.data.repository.SealingRepository
 import com.haloxtraffic.core.data.repository.SessionRepository
 import com.haloxtraffic.core.data.settings.SettingsRepository
+import com.haloxtraffic.core.evidence.SealedStore
 import com.haloxtraffic.core.model.DeviceProfile
 import com.haloxtraffic.core.model.DeviceTier
 import com.haloxtraffic.core.model.GeoFix
@@ -88,6 +91,8 @@ class LiveEnforcementViewModel @Inject constructor(
     private val detectionController: DetectionController,
     private val violationController: ViolationController,
     private val anprController: AnprController,
+    private val sealingRepository: SealingRepository,
+    private val sealedStore: SealedStore,
 ) : ViewModel() {
 
     /** Plate reads keyed by track, retained for evidence sealing (Phase 5). */
@@ -116,23 +121,67 @@ class LiveEnforcementViewModel @Inject constructor(
         viewModelScope.launch {
             violationController.committedCount.collect { c -> _state.value = _state.value.copy(sessionViolations = c) }
         }
-        // On each COMMIT, run ANPR off the hot path: crop plates for the offending track → recognise.
+        // On each COMMIT: ANPR (off hot path) → assemble media → seal to tamper-evident evidence.
         viewModelScope.launch {
-            violationController.events.collect { event ->
-                val crops = detectionController.cropPlatesForTrack(event.track.box)
-                val plate = anprController.recognizePlate(crops)
-                plateResults[event.trackId] = plate
-                _state.value = _state.value.copy(
-                    lastPlate = plate.plate,
-                    lastPlateConfidence = plate.confidence,
-                    lastPlateValidated = plate.validated,
-                )
-            }
+            violationController.events.collect { event -> sealViolation(event) }
         }
         viewModelScope.launch {
             anprController.status.collect { s -> _state.value = _state.value.copy(ocrStatus = s) }
         }
     }
+
+    private suspend fun sealViolation(event: ViolationEvent) {
+        val sessionId = _state.value.sessionId ?: return
+        val caseId = UUID.randomUUID().toString()
+
+        // Plate crop for evidence: save the freshest candidate before ANPR recycles the bitmaps.
+        val crops = detectionController.cropPlatesForTrack(event.track.box)
+        val plateCropFile = crops.firstOrNull()?.let { sealedStore.saveCrop(caseId, it) }
+        val plate = anprController.recognizePlate(crops) // recycles crops; the file is already written
+        plateResults[event.trackId] = plate
+        _state.value = _state.value.copy(
+            lastPlate = plate.plate,
+            lastPlateConfidence = plate.confidence,
+            lastPlateValidated = plate.validated,
+        )
+
+        // Full-res context still (best fidelity). Failure is non-fatal — evidence flags it as absent.
+        val stillFile = sealedStore.newStillFile(caseId)
+        val stills = if (cameraController.captureStill(stillFile).isSuccess) listOf(stillFile) else emptyList()
+
+        val time = timeSource.now()
+        val geo = _state.value.geo
+        val session = sessionRepository.byId(sessionId)
+        sealingRepository.sealCommit(
+            CaseDraft(
+                caseId = caseId,
+                sessionId = sessionId,
+                vehicleTrackId = event.trackId,
+                type = event.type,
+                severity = 1,
+                tsMs = time.epochMs,
+                lat = geo?.lat ?: 0.0,
+                lon = geo?.lon ?: 0.0,
+                accuracyM = geo?.accuracyM ?: Float.MAX_VALUE,
+                heading = geo?.headingDeg,
+                fsmTraceJson = traceToJson(event),
+                plate = plate,
+                vlmDescription = null,
+                timeTrust = time.trust,
+                clip = null, // video clip encoding is a Phase-10 refinement; stills carry context for now
+                stills = stills,
+                plateCrops = listOfNotNull(plateCropFile),
+                officerId = session?.officerId.orEmpty(),
+                jurisdictionId = session?.jurisdictionId,
+                modelVersionsJson = session?.modelVersionsJson ?: "{}",
+            ),
+        )
+    }
+
+    private fun traceToJson(event: ViolationEvent): String =
+        event.trace.joinToString(prefix = "[", postfix = "]") { e ->
+            """{"frame":${e.frame},"state":"${e.state}","note":"${e.note.replace("\"", "'")}"}"""
+        }
 
     private fun observeDetection() {
         _state.value = _state.value.copy(detectorLabels = detectionController.labels)

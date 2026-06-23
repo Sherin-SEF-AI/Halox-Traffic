@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
     implementation(project(":core:sensors"))
+    implementation(project(":core:evidence"))
     implementation(project(":core:designsystem"))
     implementation(project(":feature:detection"))
     implementation(project(":feature:violations"))

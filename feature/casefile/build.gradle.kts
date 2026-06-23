@@ -24,6 +24,7 @@ dependencies {
     implementation(project(":core:designsystem"))
 
     implementation(libs.coroutines.core)
+    implementation(libs.kotlinx.serialization.json) // decode evidence media-path arrays
     implementation(libs.timber)
 
     implementation(platform(libs.androidx.compose.bom))

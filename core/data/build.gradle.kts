@@ -34,6 +34,8 @@ ksp {
 
 dependencies {
     implementation(project(":core:model"))
+    // Cases ARE sealed evidence; the sealing repository wires the crypto from :core:evidence.
+    implementation(project(":core:evidence"))
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

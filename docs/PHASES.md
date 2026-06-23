@@ -9,7 +9,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 2 | YOLO26 LiteRT detector + NMS-free decoder + delegate fallback + live overlay + per-stage latency | ✅ done (`:feature:detection`) — supply a real `.tflite` + confirm output layout to go live |
 | 3 | IoU+Kalman tracker + direction estimation; No-Helmet / Triple-Riding / Wrong-Way / No-Plate FSMs + live overlay/haptic | ✅ done (`:feature:violations`) — committed cases are in-memory until Phase 5 sealing |
 | 4 | ANPR: plate crop + best-frame + PaddleOCR (CTC) + correction + validation + consensus + colour | ✅ done (`:feature:anpr`) — supply a real PP-OCRv5 `.tflite` + confirm charset/blank to go live |
-| 5 | Evidence sealing: package builder + hash-chain + Keystore signing + sealed store; Case File | ⬜ crypto done (`:core:evidence`); wiring pending |
+| 5 | Evidence sealing: seal+persist signed hash-chained cases + immutable store; Case File review | ✅ done (`:core:data` SealingRepository, `:core:evidence` SealedStore, `:feature:casefile`) |
 | 6 | Junction config (stop-line / signal ROI / lanes) on MapLibre; remaining FSMs | ⬜ |
 | 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ⬜ |
 | 8 | Reports/export: case-file PDF + e-challan bundle + CSV + analytics + map | ⬜ exporter contract ready (`:core:export`) |
@@ -22,9 +22,13 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
   overlay and per-stage latency are all real. With the placeholder model URL the detector resolves to
   `NO_MODEL` (download fails) and the analyzer skips frames — never fabricating detections. Supply a
   hosted `.tflite` + SHA-256 in `ModelRegistry` and confirm the output tensor layout to enable inference.
-- Tracking + the four high-confidence FSMs (Phase 3) are real and unit-tested; COMMITs are in-memory
-  (haptic + red overlay + session count) and get sealed to evidence in Phase 5. They light up once the
+- Tracking + the four high-confidence FSMs (Phase 3) are real and unit-tested. They light up once the
   detector has a real model feeding boxes. `plateConformant` stays null until ANPR (Phase 4) reads plates.
+- Evidence sealing (Phase 5) is live: each COMMIT runs ANPR, captures a full-res still + plate crop into
+  the immutable sealed store, then seals a signed, hash-chained `ViolationCase` + `EvidencePackage` with
+  the original plate read as the first (append-only) audit row. The Case File screen lists/reviews cases,
+  shows the integrity (chain + signature) badge, supports Confirm/Dismiss, and append-only plate
+  correction. Video-clip encoding (vs. stills) is deferred to Phase 10.
 - ANPR (Phase 4) is wired end-to-end: on COMMIT the detector buffers recent frames, crops the
   offending vehicle's plate, ranks by sharpness, runs the PP-OCRv5 CTC recognizer on the top-N, fuses
   via consensus → correction → validation, and classifies plate colour. Needs a real PP-OCRv5 `.tflite`

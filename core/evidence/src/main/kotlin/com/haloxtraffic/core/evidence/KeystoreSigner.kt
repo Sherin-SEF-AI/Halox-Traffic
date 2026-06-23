@@ -12,13 +12,20 @@ import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Abstraction over the evidence signer so it can be faked in tests / verified server-side. */
+interface Signer {
+    fun sign(packageHash: String): String
+    fun verify(packageHash: String, signatureB64: String): Boolean
+    fun publicKeyB64(): String?
+}
+
 /**
  * Signs evidence-package hashes with an Android Keystore key (§8), binding each package to this device.
  * The key is hardware-backed (StrongBox / TEE) where available; key material never leaves the Keystore.
  * Signatures are ECDSA-P256 over SHA-256 of the package hash, Base64-encoded for storage/transport.
  */
 @Singleton
-class KeystoreSigner @Inject constructor() {
+class KeystoreSigner @Inject constructor() : Signer {
 
     private val keyStore: KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
 
@@ -36,7 +43,7 @@ class KeystoreSigner @Inject constructor() {
     }
 
     /** Sign [packageHash] (a hex SHA-256). Returns a Base64 signature. */
-    fun sign(packageHash: String): String {
+    override fun sign(packageHash: String): String {
         ensureKey()
         val entry = keyStore.getEntry(KEY_ALIAS, null) as KeyStore.PrivateKeyEntry
         val signature = Signature.getInstance(SIGNATURE_ALGORITHM).apply {
@@ -47,7 +54,7 @@ class KeystoreSigner @Inject constructor() {
     }
 
     /** Verify a Base64 [signatureB64] over [packageHash] against this device's public key. */
-    fun verify(packageHash: String, signatureB64: String): Boolean = runCatching {
+    override fun verify(packageHash: String, signatureB64: String): Boolean = runCatching {
         val cert = keyStore.getCertificate(KEY_ALIAS) ?: return false
         val signature = Signature.getInstance(SIGNATURE_ALGORITHM).apply {
             initVerify(cert.publicKey as PublicKey)
@@ -60,7 +67,7 @@ class KeystoreSigner @Inject constructor() {
     }
 
     /** Base64 X.509 public key, exported with evidence so a server can verify independently. */
-    fun publicKeyB64(): String? = keyStore.getCertificate(KEY_ALIAS)
+    override fun publicKeyB64(): String? = keyStore.getCertificate(KEY_ALIAS)
         ?.publicKey?.encoded?.let { Base64.getEncoder().encodeToString(it) }
 
     private companion object {

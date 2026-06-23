@@ -98,6 +98,10 @@ interface EvidencePackageDao {
     @Query("SELECT * FROM evidence_package ORDER BY sealedAt ASC")
     suspend fun chainInSealOrder(): List<EvidencePackageEntity>
 
+    /** Most recently sealed package — its recomputed link hash anchors the next package. */
+    @Query("SELECT * FROM evidence_package ORDER BY sealedAt DESC LIMIT 1")
+    suspend fun latest(): EvidencePackageEntity?
+
     @Query("SELECT sha256 FROM evidence_package ORDER BY sealedAt DESC LIMIT 1")
     suspend fun latestHash(): String?
 }

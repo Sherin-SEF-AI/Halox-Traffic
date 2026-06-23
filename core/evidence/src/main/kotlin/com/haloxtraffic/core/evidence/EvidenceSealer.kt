@@ -50,7 +50,7 @@ interface EvidenceSealer {
 class DefaultEvidenceSealer @Inject constructor(
     private val hasher: Hasher,
     private val hashChain: HashChain,
-    private val signer: KeystoreSigner,
+    private val signer: Signer,
 ) : EvidenceSealer {
 
     override fun seal(input: EvidenceInput, prevLinkHash: String?, sealedAtMs: Long): SealedEvidence {
