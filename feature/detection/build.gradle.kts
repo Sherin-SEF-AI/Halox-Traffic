@@ -38,6 +38,8 @@ dependencies {
     // Active detector: MediaPipe Tasks Vision ObjectDetector running a bundled EfficientDet-Lite0
     // (COCO) model — real on-device detection out of the box.
     implementation(libs.mediapipe.tasks.vision)
+    // Plate detector: bundled YOLOv11 license-plate ONNX run via ONNX Runtime.
+    implementation(libs.onnxruntime.android)
 
     // LiteRT path (kept for a custom YOLO26 export): runtime + GPU delegate, org.tensorflow.lite.*.
     implementation(libs.litert)

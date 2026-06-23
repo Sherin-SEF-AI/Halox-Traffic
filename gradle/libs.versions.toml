@@ -120,6 +120,7 @@ litert-gpu = { group = "org.tensorflow", name = "tensorflow-lite-gpu", version.r
 litert-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version = "0.4.4" }
 mediapipe-tasks-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipeGenai" }
 mediapipe-tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "mediapipeGenai" }
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version = "1.20.0" }
 mlkit-face-detection = { group = "com.google.mlkit", name = "face-detection", version.ref = "mlkitFaceDetection" }
 
 # Maps
