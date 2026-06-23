@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Operational Materialism canvas; mirrors HaloxPalette.Void / SignalGreen. -->
+    <color name="bg_void">#FF0A0B0C</color>
+    <color name="signal_green">#FF2ECC71</color>
+</resources>

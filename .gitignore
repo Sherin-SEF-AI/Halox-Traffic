@@ -1,0 +1,24 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+**/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Provisioned ML model assets (downloaded at runtime, not committed)
+/models/*.tflite
+/models/*.task
+/models/*.litertlm
+**/src/main/assets/models/
+
+# Secrets
+secrets.properties

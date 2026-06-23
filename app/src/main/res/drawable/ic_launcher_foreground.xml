@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Stylised eye/aperture mark on the matte canvas. -->
+    <path
+        android:fillColor="#0A0B0C"
+        android:pathData="M0,0h108v108h-108z" />
+    <path
+        android:fillColor="#2ECC71"
+        android:pathData="M54,34c-13,0 -23.5,9 -27,20c3.5,11 14,20 27,20c13,0 23.5,-9 27,-20c-3.5,-11 -14,-20 -27,-20zM54,66c-6.6,0 -12,-5.4 -12,-12c0,-6.6 5.4,-12 12,-12c6.6,0 12,5.4 12,12c0,6.6 -5.4,12 -12,12z" />
+    <path
+        android:fillColor="#2ECC71"
+        android:pathData="M54,48m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+</vector>
