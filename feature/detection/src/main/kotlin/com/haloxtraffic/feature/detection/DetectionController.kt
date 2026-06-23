@@ -188,6 +188,14 @@ class DetectionController @Inject constructor(
         return crops
     }
 
+    /**
+     * Copies of the buffered model frames (oldest→newest) for the pre/post evidence clip (§8). Copies
+     * so the caller can encode them while the live buffer keeps evicting. Caller recycles them.
+     */
+    fun recentClipFrames(): List<Bitmap> = synchronized(recentLock) {
+        recent.map { it.squareBitmap.copy(Bitmap.Config.ARGB_8888, false) }
+    }
+
     /** Crop a square-normalised box (with a small margin) from [src] into a new bitmap. */
     private fun cropSquare(src: Bitmap, squareBox: BoundingBox): Bitmap? {
         val margin = 0.06f

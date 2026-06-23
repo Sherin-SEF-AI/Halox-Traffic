@@ -20,6 +20,7 @@ import com.haloxtraffic.core.model.GeoFix
 import com.haloxtraffic.core.model.MountMode
 import com.haloxtraffic.core.model.TimeTrust
 import com.haloxtraffic.core.sensors.camera.CameraController
+import com.haloxtraffic.core.sensors.camera.ClipEncoder
 import com.haloxtraffic.core.sensors.location.LocationSource
 import com.haloxtraffic.core.model.BoundingBox
 import com.haloxtraffic.core.model.InferenceDelegate
@@ -37,7 +38,9 @@ import com.haloxtraffic.feature.violations.ViolationEvent
 import com.haloxtraffic.feature.vlm.VlmController
 import com.haloxtraffic.feature.vlm.VlmStatus
 import android.graphics.BitmapFactory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.withContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,6 +105,7 @@ class LiveEnforcementViewModel @Inject constructor(
     private val sealedStore: SealedStore,
     private val jurisdictionRepository: JurisdictionRepository,
     private val vlmController: VlmController,
+    private val clipEncoder: ClipEncoder,
 ) : ViewModel() {
 
     /** Plate reads keyed by track, retained for evidence sealing (Phase 5). */
@@ -158,6 +162,15 @@ class LiveEnforcementViewModel @Inject constructor(
         val stillFile = sealedStore.newStillFile(caseId)
         val stills = if (cameraController.captureStill(stillFile).isSuccess) listOf(stillFile) else emptyList()
 
+        // Pre/post context clip from the detection ring buffer (off the main thread; fail-soft).
+        val clipFrames = detectionController.recentClipFrames()
+        val clipFile = if (clipFrames.isNotEmpty()) {
+            withContext(Dispatchers.Default) { clipEncoder.encode(clipFrames, CLIP_FPS, sealedStore.newClipFile(caseId)) }
+        } else {
+            null
+        }
+        clipFrames.forEach { it.recycle() }
+
         val time = timeSource.now()
         val geo = _state.value.geo
         val session = sessionRepository.byId(sessionId)
@@ -177,7 +190,7 @@ class LiveEnforcementViewModel @Inject constructor(
                 plate = plate,
                 vlmDescription = null,
                 timeTrust = time.trust,
-                clip = null, // video clip encoding is a Phase-10 refinement; stills carry context for now
+                clip = clipFile, // pre/post context clip (null if encoding unavailable on this device)
                 stills = stills,
                 plateCrops = listOfNotNull(plateCropFile),
                 officerId = session?.officerId.orEmpty(),
@@ -397,5 +410,6 @@ class LiveEnforcementViewModel @Inject constructor(
 
     private companion object {
         const val MODEL_VERSIONS_PLACEHOLDER = """{"detector":"pending","ocr":"pending","vlm":"pending"}"""
+        const val CLIP_FPS = 6
     }
 }

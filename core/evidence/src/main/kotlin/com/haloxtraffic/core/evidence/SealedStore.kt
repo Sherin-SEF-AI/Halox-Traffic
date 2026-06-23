@@ -27,6 +27,9 @@ class SealedStore @Inject constructor(
     fun newCropFile(caseId: String, index: Int = 0): File =
         File(caseDir(caseId), "plate_${index}_${System.currentTimeMillis()}.jpg")
 
+    fun newClipFile(caseId: String): File =
+        File(caseDir(caseId), "clip_${System.currentTimeMillis()}.mp4")
+
     /** Compress a bitmap to JPEG in the case directory. Returns the written file, or null on failure. */
     fun saveJpeg(file: File, bitmap: Bitmap, quality: Int = 90): File? = runCatching {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, quality, it) }

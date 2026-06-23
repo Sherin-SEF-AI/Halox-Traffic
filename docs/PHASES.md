@@ -64,7 +64,10 @@ dependency versions on first sync.
   older than the configured window ONLY for cases that have synced AND still verify (chain + signature) —
   `retentionDays == 0` never purges, and this is the single audited deletion path (the UI can never delete
   evidence). Battery-aware throttling: `BatteryMonitor` low-power feeds the adaptive runtime like thermal
-  pressure. Video-clip MP4 encoding remains a deliberate enhancement (the ring buffer holds low-res model
-  frames; full-res rolling H.264 needs device testing) — context stills carry the scene for now.
+  pressure. Video-clip MP4 encoding is implemented (`ClipEncoder`, MediaCodec/MediaMuxer buffer mode):
+  on COMMIT the detection ring-buffer frames are encoded to an H.264 clip attached to the case. It is
+  fail-soft (any device codec issue → no clip, the case still seals) and uses the model-resolution frames
+  (a full-res rolling encoder would be the quality upgrade). The pixel→YUV (I420/NV12) conversion is pure
+  and unit-tested.
 - The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
   things to confirm at build time.
