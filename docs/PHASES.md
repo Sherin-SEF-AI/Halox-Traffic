@@ -10,7 +10,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 3 | IoU+Kalman tracker + direction estimation; No-Helmet / Triple-Riding / Wrong-Way / No-Plate FSMs + live overlay/haptic | ✅ done (`:feature:violations`) — committed cases are in-memory until Phase 5 sealing |
 | 4 | ANPR: plate crop + best-frame + PaddleOCR (CTC) + correction + validation + consensus + colour | ✅ done (`:feature:anpr`) — supply a real PP-OCRv5 `.tflite` + confirm charset/blank to go live |
 | 5 | Evidence sealing: seal+persist signed hash-chained cases + immutable store; Case File review | ✅ done (`:core:data` SealingRepository, `:core:evidence` SealedStore, `:feature:casefile`) |
-| 6 | Junction config (stop-line / signal ROI / lanes) on MapLibre; remaining FSMs | ⬜ |
+| 6 | Junction geometry capture (camera-overlay) + Red-Light / Seatbelt / Phone / Lane FSMs behind positioning flags | ✅ done (`:feature:violations`, `:feature:map`) — MapLibre map deferred to Phase 8 |
 | 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ⬜ |
 | 8 | Reports/export: case-file PDF + e-challan bundle + CSV + analytics + map | ⬜ exporter contract ready (`:core:export`) |
 | 9 | WorkManager sync to the §13 contract; hash-chain self-check; Vahan lookup | ⬜ client contract ready (`:core:sync`) |
@@ -34,6 +34,10 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
   via consensus → correction → validation, and classifies plate colour. Needs a real PP-OCRv5 `.tflite`
   (confirm input H×W, channel order, character dictionary + blank index) to produce reads; until then
   the engine stays `NO_MODEL` and returns explicit `unreadable` (never a fabricated plate).
+- All 8 violation FSMs now exist (Phase 3 + 6). Viewpoint-dependent ones (red-light/seatbelt/phone/lane)
+  are enabled per session only where junction geometry / mount support them. Junction geometry is captured
+  over the live camera (image-space stop-line / signal ROI / lane lines) in `:feature:map` JunctionConfig;
+  the MapLibre *map* view (§12.5) is folded into Phase 8.
 - MediaPipe (VLM), MapLibre and ML Kit deps remain commented in their `build.gradle.kts` until their phases.
 - The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
   things to confirm at build time.

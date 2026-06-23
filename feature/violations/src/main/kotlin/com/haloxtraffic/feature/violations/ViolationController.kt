@@ -1,6 +1,7 @@
 package com.haloxtraffic.feature.violations
 
 import com.haloxtraffic.core.model.BoundingBox
+import com.haloxtraffic.core.model.JunctionGeometry
 import com.haloxtraffic.core.model.ViolationType
 import com.haloxtraffic.feature.violations.tracking.MultiObjectTracker
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,9 +31,11 @@ data class ActiveViolation(
 class ViolationController @Inject constructor() {
 
     private var thresholds = ViolationThresholds()
+    private var geometry = JunctionGeometry.EMPTY
+    private var enabledTypes = ViolationEngine.DEFAULT_TYPES
     private var tracker = MultiObjectTracker()
-    private var builder = ObservationBuilder(tracker, thresholds)
-    private var engine = ViolationEngine(thresholds)
+    private var builder = ObservationBuilder(tracker, thresholds, geometry)
+    private var engine = ViolationEngine(thresholds, enabledTypes)
     private var frame = 0L
 
     private val _active = MutableStateFlow<List<ActiveViolation>>(emptyList())
@@ -70,10 +73,21 @@ class ViolationController @Inject constructor() {
         return newEvents
     }
 
+    /**
+     * Apply a junction's geometry and enable the viewpoint-dependent violations it supports (§6
+     * positioning flag). Call at session start / when the junction changes.
+     */
+    fun configure(geometry: JunctionGeometry, enabledViewpointTypes: Set<ViolationType>) {
+        this.geometry = geometry
+        this.enabledTypes = ViolationEngine.DEFAULT_TYPES + enabledViewpointTypes
+        builder.geometry = geometry
+        engine = ViolationEngine(thresholds, enabledTypes)
+    }
+
     fun reset() {
         tracker = MultiObjectTracker()
-        builder = ObservationBuilder(tracker, thresholds)
-        engine = ViolationEngine(thresholds)
+        builder = ObservationBuilder(tracker, thresholds, geometry)
+        engine = ViolationEngine(thresholds, enabledTypes)
         frame = 0L
         _active.value = emptyList()
         _committedCount.value = 0

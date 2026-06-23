@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -51,7 +52,10 @@ fun HomeScreen(onNavigate: (String) -> Unit, modifier: Modifier = Modifier) {
         HomeTile("Case Files", "Review, confirm, dismiss, correct plates", Icons.AutoMirrored.Filled.Assignment) {
             onNavigate(Routes.CASES)
         }
-        HomeTile("Map", "Violation map, heatmap, junction config", Icons.Filled.Map) {
+        HomeTile("Junction Setup", "Mark stop-line / signal ROI / lanes on camera", Icons.Filled.Tune) {
+            onNavigate(Routes.JUNCTION_CONFIG)
+        }
+        HomeTile("Map", "Violation map + heatmap", Icons.Filled.Map) {
             onNavigate(Routes.MAP)
         }
         HomeTile("Reports", "Exports + analytics", Icons.Filled.Assessment) {

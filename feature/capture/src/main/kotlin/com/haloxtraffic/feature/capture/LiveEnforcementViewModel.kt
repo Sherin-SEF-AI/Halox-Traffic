@@ -7,10 +7,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.camera.core.Preview
 import com.haloxtraffic.core.data.entity.SessionEntity
 import com.haloxtraffic.core.data.repository.CaseDraft
+import com.haloxtraffic.core.data.repository.JurisdictionRepository
 import com.haloxtraffic.core.data.repository.SealingRepository
 import com.haloxtraffic.core.data.repository.SessionRepository
 import com.haloxtraffic.core.data.settings.SettingsRepository
 import com.haloxtraffic.core.evidence.SealedStore
+import com.haloxtraffic.core.model.JunctionGeometry
+import com.haloxtraffic.core.model.ViolationType
 import com.haloxtraffic.core.model.DeviceProfile
 import com.haloxtraffic.core.model.DeviceTier
 import com.haloxtraffic.core.model.GeoFix
@@ -93,6 +96,7 @@ class LiveEnforcementViewModel @Inject constructor(
     private val anprController: AnprController,
     private val sealingRepository: SealingRepository,
     private val sealedStore: SealedStore,
+    private val jurisdictionRepository: JurisdictionRepository,
 ) : ViewModel() {
 
     /** Plate reads keyed by track, retained for evidence sealing (Phase 5). */
@@ -286,6 +290,12 @@ class LiveEnforcementViewModel @Inject constructor(
         viewModelScope.launch {
             val settings = settingsRepository.settings.first()
             val id = UUID.randomUUID().toString()
+
+            // Apply this jurisdiction's junction geometry + enable the viewpoint violations it supports.
+            val geometry = settings.jurisdictionId
+                ?.let { jurisdictionRepository.junctionGeometryFor(it) } ?: JunctionGeometry.EMPTY
+            violationController.configure(geometry, enabledViewpointTypes(geometry, _state.value.mountMode))
+
             sessionRepository.start(
                 SessionEntity(
                     id = id,
@@ -303,6 +313,18 @@ class LiveEnforcementViewModel @Inject constructor(
             Timber.i("Session started: $id")
         }
     }
+
+    /** Enable viewpoint-dependent violations only where geometry / mount support them (§6 positioning flag). */
+    private fun enabledViewpointTypes(geometry: JunctionGeometry, mountMode: MountMode): Set<ViolationType> =
+        buildSet {
+            if (geometry.supportsRedLight) add(ViolationType.RED_LIGHT_JUMP)
+            if (geometry.supportsLane) add(ViolationType.LANE_VIOLATION)
+            // Seatbelt / phone need a stable frontal view — only on a mounted device.
+            if (mountMode != MountMode.HANDHELD) {
+                add(ViolationType.NO_SEATBELT)
+                add(ViolationType.PHONE_USE)
+            }
+        }
 
     fun togglePause() {
         _state.value = _state.value.copy(paused = !_state.value.paused)

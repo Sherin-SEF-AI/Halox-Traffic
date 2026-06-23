@@ -3,8 +3,12 @@ package com.haloxtraffic.feature.violations
 import com.haloxtraffic.core.model.Track
 import com.haloxtraffic.core.model.VehicleClass
 import com.haloxtraffic.core.model.ViolationType
+import com.haloxtraffic.feature.violations.fsm.LaneViolationFsm
 import com.haloxtraffic.feature.violations.fsm.NoHelmetFsm
 import com.haloxtraffic.feature.violations.fsm.NoOrObscuredPlateFsm
+import com.haloxtraffic.feature.violations.fsm.NoSeatbeltFsm
+import com.haloxtraffic.feature.violations.fsm.PhoneUseFsm
+import com.haloxtraffic.feature.violations.fsm.RedLightJumpFsm
 import com.haloxtraffic.feature.violations.fsm.TripleRidingFsm
 import com.haloxtraffic.feature.violations.fsm.WrongWayFsm
 
@@ -63,7 +67,10 @@ class ViolationEngine(
                     ViolationType.TRIPLE_RIDING -> TripleRidingFsm(thresholds)
                     ViolationType.WRONG_WAY -> WrongWayFsm(thresholds)
                     ViolationType.PLATE_MISSING_OR_OBSCURED -> NoOrObscuredPlateFsm(thresholds)
-                    else -> error("No FSM wired for $type (lands in a later phase)")
+                    ViolationType.RED_LIGHT_JUMP -> RedLightJumpFsm(thresholds)
+                    ViolationType.NO_SEATBELT -> NoSeatbeltFsm(thresholds)
+                    ViolationType.PHONE_USE -> PhoneUseFsm(thresholds)
+                    ViolationType.LANE_VIOLATION -> LaneViolationFsm(thresholds)
                 }
             }
 

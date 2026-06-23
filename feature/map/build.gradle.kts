@@ -21,6 +21,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))
+    implementation(project(":core:sensors")) // CameraX preview for junction-geometry capture
     implementation(project(":core:designsystem"))
 
     implementation(libs.coroutines.core)
@@ -31,6 +32,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.camerax.view)
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

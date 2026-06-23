@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import com.haloxtraffic.feature.capture.LiveEnforcementScreen
 import com.haloxtraffic.feature.casefile.CaseDetailScreen
 import com.haloxtraffic.feature.casefile.CaseFileScreen
+import com.haloxtraffic.feature.map.JunctionConfigScreen
 import com.haloxtraffic.feature.map.MapScreen
 import com.haloxtraffic.feature.reports.ReportsScreen
 import com.haloxtraffic.feature.settings.SettingsScreen
@@ -22,6 +23,7 @@ object Routes {
     const val CASES = "cases"
     const val CASE_DETAIL = "case_detail"
     const val MAP = "map"
+    const val JUNCTION_CONFIG = "junction_config"
     const val REPORTS = "reports"
     const val SETTINGS = "settings"
 }
@@ -56,6 +58,9 @@ fun HaloxNavHost(navController: NavHostController, modifier: Modifier = Modifier
             )
         }
         composable(Routes.MAP) { MapScreen() }
+        composable(Routes.JUNCTION_CONFIG) {
+            JunctionConfigScreen(onBack = { navController.popBackStack() })
+        }
         composable(Routes.REPORTS) { ReportsScreen() }
         composable(Routes.SETTINGS) { SettingsScreen() }
     }

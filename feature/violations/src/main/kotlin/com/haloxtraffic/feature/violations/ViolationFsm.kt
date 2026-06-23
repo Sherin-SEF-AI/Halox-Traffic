@@ -42,8 +42,15 @@ data class TrackObservation(
     val expectedDirectionDeg: Float?,
     /** Track heading in degrees derived from velocity, or null if too slow to be meaningful. */
     val headingDeg: Float?,
+    // Viewpoint-dependent cues (§6), populated only when junction geometry supports them.
     val signalRed: Boolean = false,
     val crossedStopLine: Boolean = false,
+    /** 4-wheeler driver region shows no seatbelt (candidate; verified at high confidence/VLM). */
+    val seatbeltAbsent: Boolean = false,
+    /** A phone detection sits in the driver region. */
+    val phoneNearDriver: Boolean = false,
+    /** The vehicle straddles a configured lane boundary. */
+    val laneStraddle: Boolean = false,
 )
 
 /**
