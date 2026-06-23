@@ -11,7 +11,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 4 | ANPR: plate crop + best-frame + PaddleOCR (CTC) + correction + validation + consensus + colour | ✅ done (`:feature:anpr`) — supply a real PP-OCRv5 `.tflite` + confirm charset/blank to go live |
 | 5 | Evidence sealing: seal+persist signed hash-chained cases + immutable store; Case File review | ✅ done (`:core:data` SealingRepository, `:core:evidence` SealedStore, `:feature:casefile`) |
 | 6 | Junction geometry capture (camera-overlay) + Red-Light / Seatbelt / Phone / Lane FSMs behind positioning flags | ✅ done (`:feature:violations`, `:feature:map`) — MapLibre map deferred to Phase 8 |
-| 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ⬜ |
+| 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ✅ done (`:feature:vlm`) — supply a Gemma `.task` + confirm tasks-genai version |
 | 8 | Reports/export: case-file PDF + e-challan bundle + CSV + analytics + map | ⬜ exporter contract ready (`:core:export`) |
 | 9 | WorkManager sync to the §13 contract; hash-chain self-check; Vahan lookup | ⬜ client contract ready (`:core:sync`) |
 | 10 | Hardening: bystander blur, thermal/battery/storage, full test coverage | ⬜ |
@@ -38,6 +38,11 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
   are enabled per session only where junction geometry / mount support them. Junction geometry is captured
   over the live camera (image-space stop-line / signal ROI / lane lines) in `:feature:map` JunctionConfig;
   the MapLibre *map* view (§12.5) is folded into Phase 8.
-- MediaPipe (VLM), MapLibre and ML Kit deps remain commented in their `build.gradle.kts` until their phases.
+- VLM (Phase 7) is HIGH-tier only and strictly off the hot path: on COMMIT, after sealing, it adds an
+  incident description and — only when OCR was uncertain — a plate *candidate* (append-only, never
+  validated, never overwriting a real read). Per-session image budget enforced; DISABLED on LOW/MID.
+  Needs a Gemma 3n `.task` asset; confirm the `tasks-genai` version + the multimodal API (isolated to
+  `MediaPipeVlmEngine`).
+- MapLibre and ML Kit deps remain commented in their `build.gradle.kts` until their phases.
 - The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
   things to confirm at build time.

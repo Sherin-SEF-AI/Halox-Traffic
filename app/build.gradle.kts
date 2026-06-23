@@ -48,6 +48,7 @@ dependencies {
     // Features
     implementation(project(":feature:detection"))
     implementation(project(":feature:anpr"))
+    implementation(project(":feature:vlm"))
     implementation(project(":feature:violations"))
     implementation(project(":feature:capture"))
     implementation(project(":feature:casefile"))

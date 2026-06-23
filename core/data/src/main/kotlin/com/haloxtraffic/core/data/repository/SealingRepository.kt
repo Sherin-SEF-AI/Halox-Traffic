@@ -167,6 +167,33 @@ class SealingRepository @Inject constructor(
         caseDao.byId(caseId)?.let { caseDao.update(it.copy(status = status)) }
     }
 
+    /**
+     * Attach VLM enrichment after sealing (§7E, off hot path): an incident [description] and, only when
+     * the OCR plate was uncertain/absent, a VLM plate *candidate* (recorded append-only, never marked
+     * validated and never overwriting a real read). The sealed package hash is unaffected — this is
+     * supplementary review metadata, like status.
+     */
+    suspend fun attachVlm(caseId: String, description: String?, vlmPlateCandidate: String?) = withContext(io) {
+        val case = caseDao.byId(caseId) ?: return@withContext
+        var updated = case.copy(vlmDescription = description ?: case.vlmDescription)
+        if (vlmPlateCandidate != null && case.plateString == null) {
+            updated = updated.copy(plateString = vlmPlateCandidate, plateValidated = false)
+            plateAuditDao.insert(
+                PlateAuditEntity(
+                    id = UUID.randomUUID().toString(),
+                    caseId = caseId,
+                    originalRead = null,
+                    originalConfidence = null,
+                    correctedRead = vlmPlateCandidate,
+                    reviewerId = "VLM",
+                    reason = "vlm plate candidate (unvalidated)",
+                    ts = System.currentTimeMillis(),
+                ),
+            )
+        }
+        caseDao.update(updated)
+    }
+
     /** Verify one case's package: recompute its link hash + check the device signature. */
     suspend fun verifyCase(caseId: String): Boolean = withContext(io) {
         val pkg = evidenceDao.forCase(caseId) ?: return@withContext false

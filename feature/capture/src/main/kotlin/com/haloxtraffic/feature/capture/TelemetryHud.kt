@@ -13,6 +13,7 @@ import com.haloxtraffic.core.designsystem.component.StatusPill
 import com.haloxtraffic.core.designsystem.component.TelemetryRow
 import com.haloxtraffic.core.designsystem.component.ViolationBadge
 import com.haloxtraffic.feature.anpr.OcrStatus
+import com.haloxtraffic.feature.vlm.VlmStatus
 import com.haloxtraffic.core.designsystem.theme.HaloxTheme
 import com.haloxtraffic.core.designsystem.theme.SignalLevel
 import com.haloxtraffic.core.model.GeoFix
@@ -38,6 +39,7 @@ fun TelemetryHud(state: CaptureUiState, modifier: Modifier = Modifier) {
             gpsPill(state.geo)
             detectorPill(state.detectorStatus)
             ocrPill(state.ocrStatus)
+            if (state.vlmStatus != VlmStatus.DISABLED) vlmPill(state.vlmStatus)
         }
 
         // Active-violation badges (distinct types currently in view).
@@ -86,6 +88,16 @@ private fun ocrPill(status: OcrStatus) {
         else -> SignalLevel.NEUTRAL
     }
     StatusPill("OCR ${status.name.replace('_', ' ')}", level)
+}
+
+@Composable
+private fun vlmPill(status: VlmStatus) {
+    val level = when (status) {
+        VlmStatus.READY -> SignalLevel.CONFIRMED
+        VlmStatus.NO_MODEL, VlmStatus.ERROR -> SignalLevel.DEGRADED
+        else -> SignalLevel.NEUTRAL
+    }
+    StatusPill("VLM ${status.name.replace('_', ' ')}", level)
 }
 
 private fun detectText(state: CaptureUiState): String =

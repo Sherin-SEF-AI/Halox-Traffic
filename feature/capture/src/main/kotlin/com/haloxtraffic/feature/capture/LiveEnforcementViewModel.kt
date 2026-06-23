@@ -34,6 +34,9 @@ import com.haloxtraffic.feature.detection.DetectorStatus
 import com.haloxtraffic.feature.violations.ActiveViolation
 import com.haloxtraffic.feature.violations.ViolationController
 import com.haloxtraffic.feature.violations.ViolationEvent
+import com.haloxtraffic.feature.vlm.VlmController
+import com.haloxtraffic.feature.vlm.VlmStatus
+import android.graphics.BitmapFactory
 import kotlinx.coroutines.flow.SharedFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -69,6 +72,7 @@ data class CaptureUiState(
     val lastPlateConfidence: Float = 0f,
     val lastPlateValidated: Boolean = false,
     val ocrStatus: OcrStatus = OcrStatus.IDLE,
+    val vlmStatus: VlmStatus = VlmStatus.DISABLED,
     // Detection (Phase 2)
     val detectorStatus: DetectorStatus = DetectorStatus.IDLE,
     val boxes: List<BoundingBox> = emptyList(),
@@ -97,6 +101,7 @@ class LiveEnforcementViewModel @Inject constructor(
     private val sealingRepository: SealingRepository,
     private val sealedStore: SealedStore,
     private val jurisdictionRepository: JurisdictionRepository,
+    private val vlmController: VlmController,
 ) : ViewModel() {
 
     /** Plate reads keyed by track, retained for evidence sealing (Phase 5). */
@@ -180,6 +185,29 @@ class LiveEnforcementViewModel @Inject constructor(
                 modelVersionsJson = session?.modelVersionsJson ?: "{}",
             ),
         )
+
+        // Stage 6: enrich the sealed case via the VLM, off the hot path (HIGH tier only).
+        if (vlmController.isReady()) {
+            enrichWithVlm(caseId, event.type, plate.plate, plate.uncertain, stillFile.takeIf { stills.isNotEmpty() }, plateCropFile)
+        }
+    }
+
+    /** Async VLM pass: incident description + (only if OCR was uncertain) a plate candidate. */
+    private fun enrichWithVlm(
+        caseId: String,
+        type: ViolationType,
+        plate: String?,
+        plateUncertain: Boolean,
+        stillFile: java.io.File?,
+        plateCropFile: java.io.File?,
+    ) = viewModelScope.launch {
+        val stillBmp = stillFile?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
+        val cropBmp = plateCropFile?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
+        val description = vlmController.describe(type, plate, stillBmp)
+        val vlmPlate = if (plateUncertain && cropBmp != null) vlmController.readPlate(cropBmp) else null
+        sealingRepository.attachVlm(caseId, description, vlmPlate)
+        stillBmp?.recycle()
+        cropBmp?.recycle()
     }
 
     private fun traceToJson(event: ViolationEvent): String =
@@ -225,6 +253,11 @@ class LiveEnforcementViewModel @Inject constructor(
             // placeholder model URLs these resolve to NO_MODEL; supply real assets in ModelRegistry.
             detectionController.start(tier)
             anprController.start(tier)
+            // VLM is HIGH-tier only and off the hot path; no-op on LOW/MID.
+            vlmController.start(tier, adaptiveRuntime.config.value.vlmEnabled)
+        }
+        viewModelScope.launch {
+            vlmController.status.collect { s -> _state.value = _state.value.copy(vlmStatus = s) }
         }
     }
 
@@ -346,6 +379,7 @@ class LiveEnforcementViewModel @Inject constructor(
             if (id != null) sessionRepository.end(id, System.currentTimeMillis())
             cameraController.unbind()
             detectionController.stop()
+            vlmController.stop()
             violationController.reset()
             _state.value = _state.value.copy(
                 sessionId = null, paused = false, boxes = emptyList(), activeViolations = emptyList(),
@@ -357,6 +391,7 @@ class LiveEnforcementViewModel @Inject constructor(
     override fun onCleared() {
         cameraController.unbind()
         detectionController.stop()
+        vlmController.stop()
         super.onCleared()
     }
 

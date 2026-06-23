@@ -32,6 +32,7 @@ dependencies {
     implementation(project(":feature:detection"))
     implementation(project(":feature:violations"))
     implementation(project(":feature:anpr"))
+    implementation(project(":feature:vlm"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.coroutines.core)
