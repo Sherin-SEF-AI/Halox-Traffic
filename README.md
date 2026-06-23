@@ -7,9 +7,15 @@ Offline-first, device-tiered, evidence-grade. Codename **VAHAN-EYE**.
 > YOLO26 detection, IoU+Kalman tracking, all 8 violation FSMs, ANPR (PaddleOCR), tamper-evident evidence
 > sealing + Case File, junction geometry, Gemma 3n VLM, reports/export (PDF / e-challan / CSV), violation
 > map, offline-first sync + integrity self-check, and hardening (bystander blur, retention, battery). The
-> three on-device ML models (detector / OCR / VLM) are provisioned at runtime — **supply the trained
-> assets** (`docs/MODELS.md`) to enable live inference. See `docs/PHASES.md` for per-phase detail and the
-> flagged dependency/asset confirmations.
+> three on-device ML models (detector / OCR / VLM) are provisioned at runtime. See `docs/PHASES.md` for
+> per-phase detail.
+>
+> **Detection works out of the box:** a real EfficientDet-Lite0 (COCO) model is bundled in
+> `:feature:detection` assets, so person/vehicle detection, tracking, and the violations those classes
+> support (Wrong-Way, Triple-Riding, Lane) run live with no setup — verified on a Galaxy A17. To enable
+> **ANPR, No-Helmet, Seatbelt, Phone, Red-Light**, supply models that emit those classes (Indian-plate
+> PaddleOCR + a helmet/plate/seatbelt detector) per `docs/MODELS.md`; those violations stay gated off
+> until then so nothing false-fires. The Gemma `.task` (VLM) is optional (HIGH tier).
 
 ## Requirements
 - **JDK 17**
