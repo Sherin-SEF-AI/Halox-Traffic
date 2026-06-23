@@ -51,6 +51,7 @@ class SealingRepositoryTest {
             caseDao = db.violationCaseDao(),
             evidenceDao = db.evidencePackageDao(),
             plateAuditDao = db.plateAuditDao(),
+            syncQueueDao = db.syncQueueDao(),
             sealer = DefaultEvidenceSealer(hasher, chain, signer),
             hashChain = chain,
             signer = signer,
@@ -98,6 +99,18 @@ class SealingRepositoryTest {
 
         assertThat(repo.verifyCase("c1")).isFalse()
         assertThat(repo.verifyIntegrity().ok).isFalse()
+    }
+
+    @Test fun `sealing enqueues an idempotent case sync item that clears on sync`() = runTest {
+        seedSession()
+        repo.sealCommit(draft("c1", 2000))
+
+        val pending = db.syncQueueDao().pending(10)
+        val caseItem = pending.firstOrNull { it.entityType == "case" && it.entityId == "c1" }
+        assertThat(caseItem).isNotNull()
+
+        db.syncQueueDao().markSynced(caseItem!!.id, 9999)
+        assertThat(db.syncQueueDao().pending(10).any { it.entityId == "c1" }).isFalse()
     }
 
     @Test fun `plate correction appends an audit row and updates the displayed plate`() = runTest {

@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
@@ -60,6 +61,9 @@ fun HomeScreen(onNavigate: (String) -> Unit, modifier: Modifier = Modifier) {
         }
         HomeTile("Reports", "Exports + analytics", Icons.Filled.Assessment) {
             onNavigate(Routes.REPORTS)
+        }
+        HomeTile("Sync & Evidence", "Queue, integrity self-check, Vahan", Icons.Filled.CloudSync) {
+            onNavigate(Routes.SYNC)
         }
         HomeTile("Settings", "Tier, thresholds, retention, privacy", Icons.Filled.Settings) {
             onNavigate(Routes.SETTINGS)

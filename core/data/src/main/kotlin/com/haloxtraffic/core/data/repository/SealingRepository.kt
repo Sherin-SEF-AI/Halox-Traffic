@@ -2,9 +2,11 @@ package com.haloxtraffic.core.data.repository
 
 import com.haloxtraffic.core.data.dao.EvidencePackageDao
 import com.haloxtraffic.core.data.dao.PlateAuditDao
+import com.haloxtraffic.core.data.dao.SyncQueueDao
 import com.haloxtraffic.core.data.dao.ViolationCaseDao
 import com.haloxtraffic.core.data.entity.EvidencePackageEntity
 import com.haloxtraffic.core.data.entity.PlateAuditEntity
+import com.haloxtraffic.core.data.entity.SyncQueueItemEntity
 import com.haloxtraffic.core.data.entity.ViolationCaseEntity
 import com.haloxtraffic.core.evidence.ChainVerification
 import com.haloxtraffic.core.evidence.EvidenceInput
@@ -66,6 +68,7 @@ class SealingRepository @Inject constructor(
     private val caseDao: ViolationCaseDao,
     private val evidenceDao: EvidencePackageDao,
     private val plateAuditDao: PlateAuditDao,
+    private val syncQueueDao: SyncQueueDao,
     private val sealer: EvidenceSealer,
     private val hashChain: HashChain,
     private val signer: Signer,
@@ -137,6 +140,20 @@ class SealingRepository @Inject constructor(
                 reviewerId = null,
                 reason = "initial read",
                 ts = now,
+            ),
+        )
+        // Queue for opportunistic, idempotent upload (§13). Keyed by the case UUID so re-sends are no-ops.
+        syncQueueDao.enqueue(
+            SyncQueueItemEntity(
+                id = UUID.randomUUID().toString(),
+                entityType = "case",
+                entityId = draft.caseId,
+                op = "upsert",
+                payloadJson = "{}",
+                createdAt = now,
+                syncedAt = null,
+                retryCount = 0,
+                lastError = null,
             ),
         )
         Timber.i("Sealed case ${draft.caseId} (${draft.type})")

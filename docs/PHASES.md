@@ -13,7 +13,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 6 | Junction geometry capture (camera-overlay) + Red-Light / Seatbelt / Phone / Lane FSMs behind positioning flags | ✅ done (`:feature:violations`, `:feature:map`) — MapLibre map deferred to Phase 8 |
 | 7 | Gemma 3n VLM (HIGH tier) for ambiguous verification + hard plates + descriptions | ✅ done (`:feature:vlm`) — supply a Gemma `.task` + confirm tasks-genai version |
 | 8 | Reports/export: PDF case-file + e-challan ZIP bundle + CSV + analytics + violation map/heatmap | ✅ done (`:core:export`, `:feature:reports`, `:feature:map`) — map is a dependency-free Canvas; MapLibre tiles optional later |
-| 9 | WorkManager sync to the §13 contract; hash-chain self-check; Vahan lookup | ⬜ client contract ready (`:core:sync`) |
+| 9 | WorkManager sync to the §13 contract; hash-chain self-check; Vahan lookup | ✅ done (`:core:sync`, Sync screen in `:app`) — server-side auth header is a deployment TODO |
 | 10 | Hardening: bystander blur, thermal/battery/storage, full test coverage | ⬜ |
 
 ## What's deliberately not done yet
@@ -49,5 +49,11 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
   dependency-free Compose Canvas (offline, lat/lon scatter + density + filters + tap-to-open) — a MapLibre
   tile basemap can replace the scatter later without changing the data/filters/interaction. ML Kit
   (bystander blur) lands in Phase 10.
+- Sync (Phase 9): sealing a case / starting a session enqueues an idempotent sync item (keyed by the
+  client UUID). SyncWorker drains on connectivity — builds each DTO from the DB, upserts session/case,
+  uploads sealed media (multipart), and marks synced / retries with backoff. The Sync & Evidence screen
+  shows the pending queue, a "run now" trigger, the hash-chain + signature integrity self-check, storage
+  usage and an optional Vahan cross-reference. Attaching the auth token (an OkHttp interceptor) is a
+  deployment TODO; the FastAPI server itself is out of scope (client-only, per the agreed plan).
 - The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
   things to confirm at build time.

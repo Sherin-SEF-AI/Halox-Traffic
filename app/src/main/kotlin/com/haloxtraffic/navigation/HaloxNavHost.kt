@@ -14,6 +14,7 @@ import com.haloxtraffic.feature.reports.ReportsScreen
 import com.haloxtraffic.feature.settings.SettingsScreen
 import com.haloxtraffic.onboarding.OnboardingScreen
 import com.haloxtraffic.ui.HomeScreen
+import com.haloxtraffic.ui.SyncScreen
 
 /** Top-level routes. Onboarding gates first entry; Home is the hub to every section. */
 object Routes {
@@ -25,6 +26,7 @@ object Routes {
     const val MAP = "map"
     const val JUNCTION_CONFIG = "junction_config"
     const val REPORTS = "reports"
+    const val SYNC = "sync"
     const val SETTINGS = "settings"
 }
 
@@ -64,6 +66,7 @@ fun HaloxNavHost(navController: NavHostController, modifier: Modifier = Modifier
             JunctionConfigScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.REPORTS) { ReportsScreen() }
+        composable(Routes.SYNC) { SyncScreen() }
         composable(Routes.SETTINGS) { SettingsScreen() }
     }
 }

@@ -5,7 +5,9 @@ import com.haloxtraffic.core.data.dao.JunctionDao
 import com.haloxtraffic.core.data.dao.JurisdictionDao
 import com.haloxtraffic.core.data.dao.PlateAuditDao
 import com.haloxtraffic.core.data.dao.SessionDao
+import com.haloxtraffic.core.data.dao.SyncQueueDao
 import com.haloxtraffic.core.data.dao.ViolationCaseDao
+import com.haloxtraffic.core.data.entity.SyncQueueItemEntity
 import com.haloxtraffic.core.data.entity.EvidencePackageEntity
 import com.haloxtraffic.core.data.entity.JunctionEntity
 import com.haloxtraffic.core.data.entity.JurisdictionEntity
@@ -27,9 +29,28 @@ import javax.inject.Singleton
 @Singleton
 class SessionRepository @Inject constructor(
     private val sessionDao: SessionDao,
+    private val syncQueueDao: SyncQueueDao,
 ) {
     fun observeSessions(): Flow<List<SessionEntity>> = sessionDao.observeAll()
-    suspend fun start(session: SessionEntity) = sessionDao.upsert(session)
+
+    suspend fun start(session: SessionEntity) {
+        sessionDao.upsert(session)
+        // Queue the session manifest for idempotent upload (§13).
+        syncQueueDao.enqueue(
+            SyncQueueItemEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                entityType = "session",
+                entityId = session.id,
+                op = "upsert",
+                payloadJson = "{}",
+                createdAt = session.startedAt,
+                syncedAt = null,
+                retryCount = 0,
+                lastError = null,
+            ),
+        )
+    }
+
     suspend fun end(id: String, endedAt: Long) = sessionDao.markEnded(id, endedAt)
     suspend fun byId(id: String) = sessionDao.byId(id)
 }
