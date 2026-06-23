@@ -33,10 +33,11 @@ class MediaPipeVlmEngine @Inject constructor(
     override fun init(modelFile: File, useGpu: Boolean) {
         require(modelFile.exists()) { "VLM model not provisioned: ${modelFile.name}" }
         close()
+        // NOTE: the per-session image cap is enforced in VlmController; the engine-level
+        // setMaxNumImages(...) option varies by tasks-genai version, so it's intentionally omitted.
         val options = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelFile.absolutePath)
             .setMaxTokens(MAX_TOKENS)
-            .setMaxNumImages(MAX_IMAGES_PER_SESSION)
             .setPreferredBackend(if (useGpu) LlmInference.Backend.GPU else LlmInference.Backend.CPU)
             .build()
         llm = LlmInference.createFromOptions(context, options)
@@ -66,7 +67,6 @@ class MediaPipeVlmEngine @Inject constructor(
 
     private companion object {
         const val MAX_TOKENS = 1024
-        const val MAX_IMAGES_PER_SESSION = 1
         const val TOP_K = 40
         const val TEMPERATURE = 0.2f
     }

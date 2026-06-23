@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":core:sensors"))
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.camerax.core) // ImageProxy in the analyzer + preprocessing path
     implementation(libs.coroutines.core)
     implementation(libs.okhttp) // model provisioning download
     implementation(libs.kotlinx.serialization.json)

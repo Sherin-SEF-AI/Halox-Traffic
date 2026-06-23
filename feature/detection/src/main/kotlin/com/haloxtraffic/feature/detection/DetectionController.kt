@@ -138,7 +138,7 @@ class DetectionController @Inject constructor(
                 uprightHeight = pre.uprightHeight,
                 preprocessMs = preprocessMs,
                 inferenceMs = result.inferenceMs,
-                delegate = result.delegate,
+                delegate = result.activeDelegate,
             )
         } catch (t: Throwable) {
             Timber.e(t, "Detection frame failed")

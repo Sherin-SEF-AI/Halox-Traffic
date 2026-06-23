@@ -37,21 +37,26 @@ class SettingsRepository @Inject constructor(
         )
     }
 
-    suspend fun setTierOverride(tier: DeviceTier?) = dataStore.edit { p ->
-        if (tier == null) p.remove(KEY_TIER_OVERRIDE) else p[KEY_TIER_OVERRIDE] = tier.name
+    // Block bodies (return Unit) so the DataStore `Preferences` type never leaks to callers' classpath.
+    suspend fun setTierOverride(tier: DeviceTier?) {
+        dataStore.edit { p -> if (tier == null) p.remove(KEY_TIER_OVERRIDE) else p[KEY_TIER_OVERRIDE] = tier.name }
     }
 
-    suspend fun setOfficer(officerId: String) = dataStore.edit { it[KEY_OFFICER_ID] = officerId }
-
-    suspend fun setJurisdiction(id: String?) = dataStore.edit { p ->
-        if (id == null) p.remove(KEY_JURISDICTION_ID) else p[KEY_JURISDICTION_ID] = id
+    suspend fun setOfficer(officerId: String) {
+        dataStore.edit { it[KEY_OFFICER_ID] = officerId }
     }
 
-    suspend fun setBystanderBlurDefault(enabled: Boolean) =
+    suspend fun setJurisdiction(id: String?) {
+        dataStore.edit { p -> if (id == null) p.remove(KEY_JURISDICTION_ID) else p[KEY_JURISDICTION_ID] = id }
+    }
+
+    suspend fun setBystanderBlurDefault(enabled: Boolean) {
         dataStore.edit { it[KEY_BYSTANDER_BLUR] = enabled }
+    }
 
-    suspend fun setRetentionDays(days: Int) =
+    suspend fun setRetentionDays(days: Int) {
         dataStore.edit { it[KEY_RETENTION_DAYS] = days.toString() }
+    }
 
     private companion object {
         val KEY_TIER_OVERRIDE = stringPreferencesKey("tier_override")
