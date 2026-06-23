@@ -22,7 +22,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -42,6 +44,14 @@ fun LiveEnforcementScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+
+    // Discrete haptic cue on each committed violation (§11/§12.2).
+    LaunchedEffect(Unit) {
+        viewModel.violationEvents.collect {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
 
     fun hasPermission(p: String) =
         ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
@@ -92,6 +102,7 @@ fun LiveEnforcementScreen(
             DetectionOverlay(
                 boxes = state.boxes,
                 labels = state.detectorLabels,
+                violations = state.activeViolations,
                 modifier = Modifier.fillMaxSize(),
             )
         }

@@ -1,5 +1,6 @@
 package com.haloxtraffic.feature.detection.model
 
+import com.haloxtraffic.core.model.DetectionClass
 import com.haloxtraffic.core.model.DetectionConfig
 import com.haloxtraffic.core.model.Quantization
 import javax.inject.Inject
@@ -13,12 +14,8 @@ import javax.inject.Singleton
 @Singleton
 class ModelRegistry @Inject constructor() {
 
-    /** Detector classes the violation FSMs depend on (§6). Order must match the exported model. */
-    val detectorClasses = listOf(
-        "motorcycle", "car", "auto_rickshaw", "truck", "bus",
-        "person", "helmet", "no_helmet", "plate",
-        "traffic_light_red", "traffic_light_green", "phone", "seatbelt",
-    )
+    /** Detector classes the violation FSMs depend on (§6); canonical order from [DetectionClass]. */
+    val detectorClasses: List<String> = DetectionClass.labels
 
     fun specsFor(config: DetectionConfig): List<ModelSpec> = buildList {
         add(detectorSpec(config.detectorVariant, config.inputResolutionPx, config.quantization))

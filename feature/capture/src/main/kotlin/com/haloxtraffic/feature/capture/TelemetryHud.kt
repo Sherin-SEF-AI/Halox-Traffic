@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.haloxtraffic.core.designsystem.component.PlateReadout
 import com.haloxtraffic.core.designsystem.component.StatusPill
 import com.haloxtraffic.core.designsystem.component.TelemetryRow
+import com.haloxtraffic.core.designsystem.component.ViolationBadge
 import com.haloxtraffic.core.designsystem.theme.HaloxTheme
 import com.haloxtraffic.core.designsystem.theme.SignalLevel
 import com.haloxtraffic.core.model.GeoFix
@@ -36,9 +37,18 @@ fun TelemetryHud(state: CaptureUiState, modifier: Modifier = Modifier) {
             detectorPill(state.detectorStatus)
         }
 
+        // Active-violation badges (distinct types currently in view).
+        val activeTypes = state.activeViolations.flatMap { it.types }.distinct()
+        if (activeTypes.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                activeTypes.take(3).forEach { ViolationBadge(it.displayName) }
+            }
+        }
+
         if (state.lastPlate != null) PlateReadout(state.lastPlate)
 
         TelemetryRow("FPS", "%.1f / %d".format(state.fps, state.targetFps), valueEmphasis = true)
+        TelemetryRow("VIOLATIONS", state.sessionViolations.toString(), valueEmphasis = state.sessionViolations > 0)
         TelemetryRow("DETECT", detectText(state))
         TelemetryRow("OBJECTS", state.boxes.size.toString())
         TelemetryRow("RES", state.analysisRes)

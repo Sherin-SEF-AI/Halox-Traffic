@@ -22,6 +22,10 @@ import com.haloxtraffic.core.sensors.profile.DeviceProfiler
 import com.haloxtraffic.core.sensors.time.TimeSource
 import com.haloxtraffic.feature.detection.DetectionController
 import com.haloxtraffic.feature.detection.DetectorStatus
+import com.haloxtraffic.feature.violations.ActiveViolation
+import com.haloxtraffic.feature.violations.ViolationController
+import com.haloxtraffic.feature.violations.ViolationEvent
+import kotlinx.coroutines.flow.SharedFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,6 +64,9 @@ data class CaptureUiState(
     val preprocessMs: Long = 0,
     val inferenceMs: Long = 0,
     val activeDelegate: InferenceDelegate? = null,
+    // Violations (Phase 3)
+    val activeViolations: List<ActiveViolation> = emptyList(),
+    val sessionViolations: Int = 0,
 )
 
 @HiltViewModel
@@ -73,10 +80,14 @@ class LiveEnforcementViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val sessionRepository: SessionRepository,
     private val detectionController: DetectionController,
+    private val violationController: ViolationController,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CaptureUiState())
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
+
+    /** New COMMITs — collected by the screen to fire a haptic/discrete cue. */
+    val violationEvents: SharedFlow<ViolationEvent> = violationController.events
 
     private var profile: DeviceProfile? = null
 
@@ -85,6 +96,16 @@ class LiveEnforcementViewModel @Inject constructor(
         observeRuntime()
         observeCameraMetrics()
         observeDetection()
+        observeViolations()
+    }
+
+    private fun observeViolations() {
+        viewModelScope.launch {
+            violationController.active.collect { a -> _state.value = _state.value.copy(activeViolations = a) }
+        }
+        viewModelScope.launch {
+            violationController.committedCount.collect { c -> _state.value = _state.value.copy(sessionViolations = c) }
+        }
     }
 
     private fun observeDetection() {
@@ -95,6 +116,8 @@ class LiveEnforcementViewModel @Inject constructor(
         viewModelScope.launch {
             detectionController.frames.collect { f ->
                 if (f != null) {
+                    // Stage 2+3: track + run the FSM bank on this frame's detections.
+                    violationController.onFrame(f.boxes)
                     _state.value = _state.value.copy(
                         boxes = f.boxes,
                         preprocessMs = f.preprocessMs,
@@ -182,6 +205,7 @@ class LiveEnforcementViewModel @Inject constructor(
 
     fun startSession() {
         if (_state.value.sessionId != null) return
+        violationController.reset() // singleton outlives the ViewModel; clear prior-session state
         viewModelScope.launch {
             val settings = settingsRepository.settings.first()
             val id = UUID.randomUUID().toString()
@@ -223,7 +247,10 @@ class LiveEnforcementViewModel @Inject constructor(
             if (id != null) sessionRepository.end(id, System.currentTimeMillis())
             cameraController.unbind()
             detectionController.stop()
-            _state.value = _state.value.copy(sessionId = null, paused = false, boxes = emptyList())
+            violationController.reset()
+            _state.value = _state.value.copy(
+                sessionId = null, paused = false, boxes = emptyList(), activeViolations = emptyList(),
+            )
             onEnded()
         }
     }

@@ -1,5 +1,6 @@
 package com.haloxtraffic.feature.violations
 
+import com.haloxtraffic.core.model.Track
 import com.haloxtraffic.core.model.ViolationType
 
 /**
@@ -19,9 +20,36 @@ data class FsmTraceEntry(val frame: Long, val state: FsmState, val note: String)
 data class FsmStep(val state: FsmState, val committed: Boolean, val trace: FsmTraceEntry)
 
 /**
- * Base class for per-track violation FSMs. Subclasses implement [evaluate] to decide whether the
- * current frame meets the violation criteria; this base handles the debounce/confirmation bookkeeping
- * uniformly so confirmation semantics are consistent and unit-testable across all violation types.
+ * Everything a per-track FSM may need for one frame (§6/§7). Built by [ObservationBuilder] by
+ * associating the frame's person/helmet/plate/signal detections to each vehicle [track]. Fields a given
+ * violation doesn't use are simply ignored by its [ViolationFsm.evaluate].
+ */
+data class TrackObservation(
+    val frame: Long,
+    val track: Track,
+    val moving: Boolean,
+    /** Persons associated with this vehicle (for triple-riding). */
+    val associatedPersons: Int,
+    val helmetedHeads: Int,
+    val unhelmetedHeads: Int,
+    /** A plate was detected within the vehicle region. */
+    val platePresent: Boolean,
+    /** The plate detection is large/confident enough to be readable. */
+    val plateReadable: Boolean,
+    /** Plate conforms to a known Indian format; null until ANPR (Phase 4) reads it. */
+    val plateConformant: Boolean?,
+    /** Expected travel direction in degrees (lane config or inferred majority flow), or null. */
+    val expectedDirectionDeg: Float?,
+    /** Track heading in degrees derived from velocity, or null if too slow to be meaningful. */
+    val headingDeg: Float?,
+    val signalRed: Boolean = false,
+    val crossedStopLine: Boolean = false,
+)
+
+/**
+ * Base class for per-track violation FSMs. Subclasses implement [evaluate]; this base handles the
+ * debounce/confirmation bookkeeping uniformly so confirmation semantics are consistent and testable
+ * across all violation types.
  *
  * @param confirmFrames K — consecutive criteria-meeting frames required before COMMIT.
  * @param rejectGapFrames consecutive non-meeting frames that reset CONFIRMING back toward IDLE.
@@ -38,10 +66,10 @@ abstract class ViolationFsm(
     private var gapStreak = 0
     private val trace = mutableListOf<FsmTraceEntry>()
 
-    /** Per-subclass criteria check for the current observation. Implemented in Phase 3. */
-    abstract fun evaluate(observation: Observation): Boolean
+    /** Per-subclass criteria check for the current observation. */
+    abstract fun evaluate(observation: TrackObservation): Boolean
 
-    fun onFrame(observation: Observation): FsmStep {
+    fun onFrame(observation: TrackObservation): FsmStep {
         if (state == FsmState.COMMITTED || state == FsmState.REJECTED) {
             return FsmStep(state, committed = false, record(observation.frame, "terminal"))
         }
@@ -62,23 +90,12 @@ abstract class ViolationFsm(
             }
         }
         val committed = state == FsmState.COMMITTED
-        return FsmStep(state, committed, record(observation.frame, if (meets) "criteria met ($meetingStreak/$confirmFrames)" else "gap ($gapStreak)"))
+        val note = if (meets) "criteria met ($meetingStreak/$confirmFrames)" else "gap ($gapStreak)"
+        return FsmStep(state, committed, record(observation.frame, note))
     }
 
     fun traceSnapshot(): List<FsmTraceEntry> = trace.toList()
 
     private fun record(frame: Long, note: String): FsmTraceEntry =
         FsmTraceEntry(frame, state, note).also { trace += it }
-
-    /**
-     * Per-frame observation fed to FSMs (filled by tracking + detection in Phase 3). Kept generic here;
-     * concrete fields (heads, helmet flags, occupant count, direction, signal state, stop-line crossing)
-     * are added as the detectors that produce them land.
-     */
-    data class Observation(
-        val frame: Long,
-        val trackId: Long,
-        val moving: Boolean,
-        val signals: Map<String, Float> = emptyMap(),
-    )
 }

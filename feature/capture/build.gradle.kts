@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":core:sensors"))
     implementation(project(":core:designsystem"))
     implementation(project(":feature:detection"))
+    implementation(project(":feature:violations"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.coroutines.core)
