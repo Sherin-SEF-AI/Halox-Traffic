@@ -41,7 +41,13 @@ fun OperationalButton(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (icon != null) Icon(icon, contentDescription = null)
-            Text(text.uppercase(), style = HaloxTheme.typography.label)
+            Text(
+                text.uppercase(),
+                style = HaloxTheme.typography.label,
+                maxLines = 1,
+                softWrap = false,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
         }
     }
     val mod = modifier.heightIn(min = HaloxTheme.dimens.touchTarget)

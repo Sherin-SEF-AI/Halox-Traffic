@@ -100,7 +100,7 @@ fun JunctionConfigScreen(
 
         // Bottom action band.
         Box(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
-            CameraScrim(Modifier.fillMaxSize(), fromTop = false)
+            CameraScrim(Modifier.matchParentSize(), fromTop = false)
             BottomActionBand(Modifier.fillMaxWidth().safeDrawingPadding()) {
                 OperationalButton("Undo", viewModel::undo)
                 OperationalButton("Close shape", viewModel::closeShape)

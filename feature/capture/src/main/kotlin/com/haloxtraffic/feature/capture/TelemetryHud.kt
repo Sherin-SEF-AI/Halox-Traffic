@@ -1,9 +1,11 @@
 package com.haloxtraffic.feature.capture
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -27,8 +29,11 @@ import com.haloxtraffic.feature.detection.DetectorStatus
 @Composable
 fun TelemetryHud(state: CaptureUiState, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        // Status pills row — paused / degraded / GPS / time-trust.
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Status pills row — paused / degraded / GPS / time-trust (scrolls if it overflows).
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             StatusPill(state.tier.name, SignalLevel.NEUTRAL)
             if (state.paused) StatusPill("PAUSED", SignalLevel.DEGRADED)
             if (state.degraded) StatusPill("THROTTLED", SignalLevel.DEGRADED)

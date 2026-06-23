@@ -109,34 +109,31 @@ fun LiveEnforcementScreen(
 
         // Top scrim + telemetry HUD.
         Box(Modifier.fillMaxWidth().height(220.dp).align(Alignment.TopCenter)) {
-            CameraScrim(Modifier.fillMaxSize())
+            CameraScrim(Modifier.matchParentSize())
             TelemetryHud(state, Modifier.safeDrawingPadding().padding(horizontal = 16.dp, vertical = 12.dp))
         }
 
-        // Bottom action band.
+        // Bottom action band — wraps its content; the scrim matches the band (not the whole screen).
         Box(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
-            CameraScrim(Modifier.fillMaxSize(), fromTop = false)
+            CameraScrim(Modifier.matchParentSize(), fromTop = false)
             BottomActionBand(
                 Modifier.fillMaxWidth().safeDrawingPadding(),
             ) {
                 OperationalButton(
                     text = if (state.paused) "Resume" else "Pause",
                     onClick = viewModel::togglePause,
-                    icon = if (state.paused) Icons.Filled.PlayCircle else Icons.Filled.PauseCircle,
                     modifier = Modifier.weight(1f),
                 )
                 OperationalButton(
                     text = "Capture",
                     onClick = { viewModel.captureManual { } },
                     kind = ButtonKind.PRIMARY,
-                    icon = Icons.Filled.CameraAlt,
                     modifier = Modifier.weight(1f),
                 )
                 OperationalButton(
                     text = "End",
                     onClick = { viewModel.endSession(onSessionEnded) },
                     kind = ButtonKind.DANGER,
-                    icon = Icons.Filled.Stop,
                     modifier = Modifier.weight(1f),
                 )
             }

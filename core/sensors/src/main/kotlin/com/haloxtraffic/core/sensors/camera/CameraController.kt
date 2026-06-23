@@ -16,6 +16,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.haloxtraffic.core.model.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,7 +72,8 @@ class CameraController @Inject constructor(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         analyzer: FrameAnalyzer = FrameAnalyzer { it.close() },
-    ) = withContext(ioDispatcher) {
+    ) = withContext(Dispatchers.Main) {
+        // CameraX use-case binding (setSurfaceProvider/bindToLifecycle) must run on the main thread.
         try {
             val provider = ProcessCameraProvider.getInstance(context).await()
             cameraProvider = provider
