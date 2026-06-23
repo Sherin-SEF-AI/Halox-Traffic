@@ -6,7 +6,7 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 |------|-------|--------|
 | 0 | Module graph, Hilt/Compose/Nav, design system, Room schema + migrations, domain models, device profiler + tiering, model-provisioning scaffold | ✅ done |
 | 1 | CameraX preview + analysis + capture, ring buffer, location/IMU/time Flows, live HUD | ✅ done |
-| 2 | YOLO26 LiteRT detector + NMS-free decoder + delegate fallback (real model) | ⬜ seams ready (`:feature:detection`) |
+| 2 | YOLO26 LiteRT detector + NMS-free decoder + delegate fallback + live overlay + per-stage latency | ✅ done (`:feature:detection`) — supply a real `.tflite` + confirm output layout to go live |
 | 3 | IoU+Kalman tracker + direction estimation; No-Helmet / Triple-Riding / Wrong-Way / No-Plate FSMs | ⬜ FSM contract ready (`:feature:violations`) |
 | 4 | ANPR: plate detect + best-frame + PaddleOCR + correction + validation + consensus | ⬜ validator/corrector/consensus done; recognizer pending (`:feature:anpr`) |
 | 5 | Evidence sealing: package builder + hash-chain + Keystore signing + sealed store; Case File | ⬜ crypto done (`:core:evidence`); wiring pending |
@@ -17,8 +17,12 @@ This repo currently contains **Phase 0 + Phase 1**. Later phases drop into the s
 | 10 | Hardening: bystander blur, thermal/battery/storage, full test coverage | ⬜ |
 
 ## What's deliberately not done yet
-- No committed real-time inference against real models (Phase 2/4) — detector/OCR engines throw until
-  initialised and never emit fabricated detections.
-- Native ML deps (LiteRT, MediaPipe, MapLibre, ML Kit) are commented out in the relevant `build.gradle.kts`
-  with TODOs so the Phase-1 foundation builds without unverified coordinates. Bring them online per phase
-  after confirming versions.
+- **Detection (Phase 2) is fully implemented but needs a real model asset to light up**: the LiteRT
+  interpreter, GPU→NNAPI→XNNPACK fallback, YUV→RGB + letterbox preprocessing, NMS-free decode, live
+  overlay and per-stage latency are all real. With the placeholder model URL the detector resolves to
+  `NO_MODEL` (download fails) and the analyzer skips frames — never fabricating detections. Supply a
+  hosted `.tflite` + SHA-256 in `ModelRegistry` and confirm the output tensor layout to enable inference.
+- OCR recognizer (Phase 4) still pending — the validator/corrector/consensus are done.
+- MediaPipe (VLM), MapLibre and ML Kit deps remain commented in their `build.gradle.kts` until their phases.
+- The TFLite/LiteRT dependency version (`tflite = 2.16.1`) and the YOLO26 output tensor layout are the two
+  things to confirm at build time.

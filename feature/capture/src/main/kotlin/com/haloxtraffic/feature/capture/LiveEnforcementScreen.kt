@@ -88,6 +88,14 @@ fun LiveEnforcementScreen(
             viewModel.bindCamera(lifecycleOwner, previewView.surfaceProvider)
         })
 
+        if (!state.paused) {
+            DetectionOverlay(
+                boxes = state.boxes,
+                labels = state.detectorLabels,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
         // Top scrim + telemetry HUD.
         Box(Modifier.fillMaxWidth().height(220.dp).align(Alignment.TopCenter)) {
             CameraScrim(Modifier.fillMaxSize())

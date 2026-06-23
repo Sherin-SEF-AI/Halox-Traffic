@@ -34,10 +34,10 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
-    // TODO(Phase 2): bring LiteRT online after confirming coordinates + YOLO26 TFLite output layout.
-    // implementation(libs.litert)
-    // implementation(libs.litert.gpu)
-    // implementation(libs.litert.support)
+    // LiteRT (Google AI Edge) — runtime + GPU delegate. Classes remain under org.tensorflow.lite.*.
+    // CONFIRM the artifact versions resolve, then confirm the YOLO26 export's output tensor layout.
+    implementation(libs.litert)
+    implementation(libs.litert.gpu)
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)

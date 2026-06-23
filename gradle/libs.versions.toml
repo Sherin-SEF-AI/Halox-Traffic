@@ -32,7 +32,9 @@ concurrentFutures = "1.2.0"
 playServicesLocation = "21.3.0"
 
 # On-device ML
-litert = "1.0.1"
+# TensorFlow Lite = the LiteRT runtime (identical org.tensorflow.lite.* API). Using the long-stable
+# org.tensorflow coordinates for reliable resolution; swap to com.google.ai.edge.litert if preferred.
+tflite = "2.16.1"
 mediapipeGenai = "0.10.21"
 mlkitFaceDetection = "16.1.7"
 
@@ -112,10 +114,10 @@ concurrent-futures-ktx = { group = "androidx.concurrent", name = "concurrent-fut
 # Location
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
-# On-device ML
-litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
-litert-gpu = { group = "com.google.ai.edge.litert", name = "litert-gpu", version.ref = "litert" }
-litert-support = { group = "com.google.ai.edge.litert", name = "litert-support", version.ref = "litert" }
+# On-device ML — TFLite/LiteRT runtime (org.tensorflow.lite.* classes) + GPU delegate.
+litert = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
+litert-gpu = { group = "org.tensorflow", name = "tensorflow-lite-gpu", version.ref = "tflite" }
+litert-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version = "0.4.4" }
 mediapipe-tasks-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipeGenai" }
 mlkit-face-detection = { group = "com.google.mlkit", name = "face-detection", version.ref = "mlkitFaceDetection" }
 

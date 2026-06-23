@@ -15,9 +15,13 @@ import com.haloxtraffic.core.model.MountMode
 import com.haloxtraffic.core.model.TimeTrust
 import com.haloxtraffic.core.sensors.camera.CameraController
 import com.haloxtraffic.core.sensors.location.LocationSource
+import com.haloxtraffic.core.model.BoundingBox
+import com.haloxtraffic.core.model.InferenceDelegate
 import com.haloxtraffic.core.sensors.profile.AdaptiveRuntimeController
 import com.haloxtraffic.core.sensors.profile.DeviceProfiler
 import com.haloxtraffic.core.sensors.time.TimeSource
+import com.haloxtraffic.feature.detection.DetectionController
+import com.haloxtraffic.feature.detection.DetectorStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +53,13 @@ data class CaptureUiState(
     val hasCameraPermission: Boolean = false,
     val hasLocationPermission: Boolean = false,
     val lastPlate: String? = null, // populated once ANPR lands (Phase 4)
+    // Detection (Phase 2)
+    val detectorStatus: DetectorStatus = DetectorStatus.IDLE,
+    val boxes: List<BoundingBox> = emptyList(),
+    val detectorLabels: List<String> = emptyList(),
+    val preprocessMs: Long = 0,
+    val inferenceMs: Long = 0,
+    val activeDelegate: InferenceDelegate? = null,
 )
 
 @HiltViewModel
@@ -61,6 +72,7 @@ class LiveEnforcementViewModel @Inject constructor(
     private val timeSource: TimeSource,
     private val settingsRepository: SettingsRepository,
     private val sessionRepository: SessionRepository,
+    private val detectionController: DetectionController,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CaptureUiState())
@@ -72,6 +84,26 @@ class LiveEnforcementViewModel @Inject constructor(
         profileDevice()
         observeRuntime()
         observeCameraMetrics()
+        observeDetection()
+    }
+
+    private fun observeDetection() {
+        _state.value = _state.value.copy(detectorLabels = detectionController.labels)
+        viewModelScope.launch {
+            detectionController.status.collect { s -> _state.value = _state.value.copy(detectorStatus = s) }
+        }
+        viewModelScope.launch {
+            detectionController.frames.collect { f ->
+                if (f != null) {
+                    _state.value = _state.value.copy(
+                        boxes = f.boxes,
+                        preprocessMs = f.preprocessMs,
+                        inferenceMs = f.inferenceMs,
+                        activeDelegate = f.delegate,
+                    )
+                }
+            }
+        }
     }
 
     private fun profileDevice() {
@@ -87,6 +119,9 @@ class LiveEnforcementViewModel @Inject constructor(
                 thermalHeadroom = p.thermalHeadroom,
                 targetFps = adaptiveRuntime.config.value.targetFps,
             )
+            // Provision + load the detector for this tier (off the hot path). With placeholder model
+            // URLs this resolves to NO_MODEL; supply real assets in ModelRegistry to enable inference.
+            detectionController.start(tier)
         }
     }
 
@@ -125,8 +160,9 @@ class LiveEnforcementViewModel @Inject constructor(
     fun bindCamera(lifecycleOwner: LifecycleOwner, surfaceProvider: Preview.SurfaceProvider) {
         if (!_state.value.hasCameraPermission) return
         viewModelScope.launch {
-            // Phase 1: analyzer is a no-op (closes the frame). Detection plugs in here in Phase 2.
-            cameraController.bind(lifecycleOwner, surfaceProvider)
+            // Stage 1 detection runs in this analyzer (on the camera analysis thread). When the model
+            // isn't ready it simply skips frames — never blocking preview and never fabricating boxes.
+            cameraController.bind(lifecycleOwner, surfaceProvider, detectionController.analyzer())
         }
     }
 
@@ -186,13 +222,15 @@ class LiveEnforcementViewModel @Inject constructor(
         viewModelScope.launch {
             if (id != null) sessionRepository.end(id, System.currentTimeMillis())
             cameraController.unbind()
-            _state.value = _state.value.copy(sessionId = null, paused = false)
+            detectionController.stop()
+            _state.value = _state.value.copy(sessionId = null, paused = false, boxes = emptyList())
             onEnded()
         }
     }
 
     override fun onCleared() {
         cameraController.unbind()
+        detectionController.stop()
         super.onCleared()
     }
 
