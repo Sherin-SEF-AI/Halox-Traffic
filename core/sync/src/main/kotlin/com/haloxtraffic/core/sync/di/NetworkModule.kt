@@ -18,8 +18,9 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    // TODO(Phase 9): make base URL configurable per environment (DataStore / build flavor).
-    private const val BASE_URL = "https://api.haloxtraffic.example/"
+    // Debug/demo default points at the local mock server (run tools/mock_server.py + `adb reverse
+    // tcp:8000 tcp:8000`). Swap to the real backend (and add an auth interceptor) for production.
+    private const val BASE_URL = "http://localhost:8000/"
 
     @Provides
     @Singleton

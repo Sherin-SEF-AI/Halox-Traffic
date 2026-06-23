@@ -49,6 +49,9 @@ class ObservationBuilder(
             val windshield = track.box.upperRegion(WINDSHIELD_FRAC)
             val plate = plates.filter { it.center in track.box }.maxByOrNull { it.score }
             val isFourWheeler = track.vehicleClass == VehicleClass.CAR || track.vehicleClass == VehicleClass.TRUCK
+            // Riders sit above + astride a two-wheeler, so their person-box centres are usually outside
+            // the bike body box — count them in an expanded rider region instead.
+            val riderRegion = track.box.expandedForRiders()
 
             val personsInWindshield = persons.count { it.center in windshield }
             val seatbeltsInWindshield = seatbelts.count { it.center in windshield }
@@ -57,7 +60,7 @@ class ObservationBuilder(
                 frame = frame,
                 track = track,
                 moving = heading != null,
-                associatedPersons = persons.count { it.center in track.box },
+                associatedPersons = persons.count { it.center in riderRegion },
                 helmetedHeads = helmets.count { it.center in headBox },
                 unhelmetedHeads = bareHeads.count { it.center in headBox },
                 platePresent = plate != null,
@@ -88,9 +91,18 @@ class ObservationBuilder(
     private fun BoundingBox.upperRegion(frac: Float): BoundingBox =
         copy(bottom = top + height * frac)
 
+    /** Expand a two-wheeler box up (riders) + sideways (pillion lean) to associate occupants. */
+    private fun BoundingBox.expandedForRiders(): BoundingBox = copy(
+        left = (left - width * RIDER_SIDE).coerceAtLeast(0f),
+        right = (right + width * RIDER_SIDE).coerceAtMost(1f),
+        top = (top - height * RIDER_UP).coerceAtLeast(0f),
+    )
+
     private companion object {
         const val HEAD_EXPAND = 0.4f
         const val WINDSHIELD_FRAC = 0.55f
+        const val RIDER_UP = 1.1f
+        const val RIDER_SIDE = 0.25f
         const val PLATE_READABLE_SCORE = 0.45f
         const val PLATE_MIN_AREA = 0.0008f
     }
