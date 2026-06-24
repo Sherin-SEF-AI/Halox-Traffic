@@ -72,6 +72,7 @@ class ObservationBuilder(
                     plate.area >= PLATE_MIN_AREA,
                 plateConformant = null, // resolved by ANPR in Phase 4
                 vehicleProminent = track.box.area >= PROMINENT_VEHICLE_AREA,
+                trackMature = (track.lastSeenFrame - track.firstSeenFrame) >= thresholds.minTrackAge,
                 expectedDirectionDeg = expectedDirection,
                 headingDeg = heading,
                 signalRed = signalRed,

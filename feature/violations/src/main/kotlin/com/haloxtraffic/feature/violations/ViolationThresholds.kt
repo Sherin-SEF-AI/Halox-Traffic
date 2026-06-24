@@ -17,6 +17,8 @@ data class ViolationThresholds(
     // A track must move at least this fraction of the frame per frame to count as moving. Set above
     // handheld camera jitter so a still scene (or a photo of traffic) does not read as moving traffic.
     val movingSpeed: Float = 0.012f,
+    // Frames a track must persist before any violation can fire — rejects momentary false tracks.
+    val minTrackAge: Int = 6,
     val wrongWayAngleDeg: Float = 120f,
     val tripleRidingMinPersons: Int = 3,
     val minFlowTracksForInference: Int = 3,

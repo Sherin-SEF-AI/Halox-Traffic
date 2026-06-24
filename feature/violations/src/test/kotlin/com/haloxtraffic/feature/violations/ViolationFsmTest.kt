@@ -29,13 +29,14 @@ class ViolationFsmTest {
         plateReadable: Boolean = true,
         plateConformant: Boolean? = null,
         vehicleProminent: Boolean = true,
+        mature: Boolean = true,
         expected: Float? = null,
         heading: Float? = null,
     ) = TrackObservation(
         frame = frame, track = track(vc = vc), moving = moving, associatedPersons = persons,
         helmetedHeads = 0, unhelmetedHeads = unhelmeted, platePresent = platePresent,
         plateReadable = plateReadable, plateConformant = plateConformant,
-        vehicleProminent = vehicleProminent,
+        vehicleProminent = vehicleProminent, trackMature = mature,
         expectedDirectionDeg = expected, headingDeg = heading,
     )
 
@@ -84,6 +85,14 @@ class ViolationFsmTest {
         val fsm = NoOrObscuredPlateFsm(t)
         var committed = false
         repeat(10) { committed = fsm.onFrame(obs(it.toLong(), platePresent = false, vehicleProminent = false)).committed }
+        assertThat(committed).isFalse()
+    }
+
+    @Test fun `no violation fires on a young (immature) track`() {
+        // A momentary/flickering detection must never commit, regardless of criteria.
+        val fsm = NoHelmetFsm(t)
+        var committed = false
+        repeat(12) { committed = fsm.onFrame(obs(it.toLong(), unhelmeted = 1, mature = false)).committed }
         assertThat(committed).isFalse()
     }
 

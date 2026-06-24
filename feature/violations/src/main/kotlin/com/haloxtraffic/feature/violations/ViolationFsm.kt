@@ -57,6 +57,11 @@ data class TrackObservation(
     val phoneNearDriver: Boolean = false,
     /** The vehicle straddles a configured lane boundary. */
     val laneStraddle: Boolean = false,
+    /**
+     * The track has persisted long enough to be trustworthy. A momentary or flickering detection
+     * creates a young track; gating violations on maturity stops those from ever committing.
+     */
+    val trackMature: Boolean = true,
 )
 
 /**
@@ -86,7 +91,8 @@ abstract class ViolationFsm(
         if (state == FsmState.COMMITTED || state == FsmState.REJECTED) {
             return FsmStep(state, committed = false, record(observation.frame, "terminal"))
         }
-        val meets = evaluate(observation)
+        // Only judge established tracks; a young/flickering track can never accumulate confirmation.
+        val meets = observation.trackMature && evaluate(observation)
         if (meets) {
             meetingStreak++
             gapStreak = 0
