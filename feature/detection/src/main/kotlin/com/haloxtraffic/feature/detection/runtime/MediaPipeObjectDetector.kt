@@ -63,6 +63,7 @@ class MediaPipeObjectDetector @Inject constructor(
             val result = det.detect(BitmapImageBuilder(input).build())
             for (d in result.detections()) {
                 val cat = d.categories().maxByOrNull { it.score() } ?: continue
+                if (cat.score() < scoreThreshold) continue // confident detections only (cuts noisy boxes)
                 val cls = labelToClass(cat.categoryName()) ?: continue
                 val r = d.boundingBox()
                 boxes += BoundingBox(

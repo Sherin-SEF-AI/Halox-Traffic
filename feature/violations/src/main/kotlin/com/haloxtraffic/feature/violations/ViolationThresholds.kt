@@ -14,7 +14,9 @@ package com.haloxtraffic.feature.violations
 data class ViolationThresholds(
     val confirmFrames: Int = 5,
     val rejectGapFrames: Int = 3,
-    val movingSpeed: Float = 0.004f,
+    // A track must move at least this fraction of the frame per frame to count as moving. Set above
+    // handheld camera jitter so a still scene (or a photo of traffic) does not read as moving traffic.
+    val movingSpeed: Float = 0.012f,
     val wrongWayAngleDeg: Float = 120f,
     val tripleRidingMinPersons: Int = 3,
     val minFlowTracksForInference: Int = 3,

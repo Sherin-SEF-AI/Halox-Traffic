@@ -205,7 +205,9 @@ class DetectionController @Inject constructor(
     }
 
     companion object {
-        const val SCORE_THRESHOLD = 0.25f
+        // Confident detections only. Low thresholds produce noisy, jittery boxes that drive spurious
+        // violations; 0.45 keeps real vehicles/persons and drops the junk.
+        const val SCORE_THRESHOLD = 0.45f
         private const val RECENT_FRAMES = 8
         private const val MIN_CROP_PX = 12
         private const val LOW_POWER_PRESSURE = 0.7f
