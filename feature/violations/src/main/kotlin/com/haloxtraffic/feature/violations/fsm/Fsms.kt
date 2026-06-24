@@ -35,14 +35,22 @@ class WrongWayFsm(private val t: ViolationThresholds) :
     }
 }
 
-/** No / obscured / non-conformant plate: a moving vehicle whose plate is absent, unreadable or invalid. */
+/**
+ * No / obscured / non-conformant plate. Fires only on positive evidence, never on our own failure to
+ * detect or read a plate: a prominent (close, clearly seen) moving vehicle with no plate at all, or a
+ * plate ANPR positively read that fails Indian-format validation. A plate we merely could not OCR is
+ * NOT a violation. For evidence-grade enforcement precision must beat recall, so we accept missing some
+ * genuine cases rather than accusing a law-abiding driver.
+ */
 class NoOrObscuredPlateFsm(t: ViolationThresholds) :
     ViolationFsm(ViolationType.PLATE_MISSING_OR_OBSCURED, t.confirmFrames, t.rejectGapFrames) {
     override fun evaluate(observation: TrackObservation): Boolean {
         if (!observation.moving) return false
+        // Only judge a vehicle we have a genuinely close, clear look at. A missed plate detection on a
+        // distant or sharply angled vehicle is our limitation, not the driver's violation.
+        if (!observation.vehicleProminent) return false
         val missing = !observation.platePresent
-        val unreadable = observation.platePresent && !observation.plateReadable
         val nonConformant = observation.plateConformant == false
-        return missing || unreadable || nonConformant
+        return missing || nonConformant
     }
 }

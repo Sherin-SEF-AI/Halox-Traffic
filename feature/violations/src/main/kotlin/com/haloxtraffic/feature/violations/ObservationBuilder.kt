@@ -67,6 +67,7 @@ class ObservationBuilder(
                 plateReadable = plate != null && plate.score >= PLATE_READABLE_SCORE &&
                     plate.area >= PLATE_MIN_AREA,
                 plateConformant = null, // resolved by ANPR in Phase 4
+                vehicleProminent = track.box.area >= PROMINENT_VEHICLE_AREA,
                 expectedDirectionDeg = expectedDirection,
                 headingDeg = heading,
                 signalRed = signalRed,
@@ -105,5 +106,8 @@ class ObservationBuilder(
         const val RIDER_SIDE = 0.25f
         const val PLATE_READABLE_SCORE = 0.45f
         const val PLATE_MIN_AREA = 0.0008f
+        // A vehicle must fill at least this fraction of the frame before its missing plate counts as
+        // evidence (close enough that a plate would be reliably detectable). Tunable via the accuracy harness.
+        const val PROMINENT_VEHICLE_AREA = 0.04f
     }
 }

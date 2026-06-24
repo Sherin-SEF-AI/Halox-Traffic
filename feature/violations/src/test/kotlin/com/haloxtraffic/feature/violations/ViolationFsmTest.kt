@@ -28,12 +28,14 @@ class ViolationFsmTest {
         platePresent: Boolean = true,
         plateReadable: Boolean = true,
         plateConformant: Boolean? = null,
+        vehicleProminent: Boolean = true,
         expected: Float? = null,
         heading: Float? = null,
     ) = TrackObservation(
         frame = frame, track = track(vc = vc), moving = moving, associatedPersons = persons,
         helmetedHeads = 0, unhelmetedHeads = unhelmeted, platePresent = platePresent,
         plateReadable = plateReadable, plateConformant = plateConformant,
+        vehicleProminent = vehicleProminent,
         expectedDirectionDeg = expected, headingDeg = heading,
     )
 
@@ -71,11 +73,26 @@ class ViolationFsmTest {
         assertThat(committed).isTrue()
     }
 
-    @Test fun `no-plate commits when plate absent on a moving vehicle`() {
+    @Test fun `no-plate commits when plate absent on a prominent moving vehicle`() {
         val fsm = NoOrObscuredPlateFsm(t)
         var committed = false
         repeat(5) { committed = fsm.onFrame(obs(it.toLong(), platePresent = false)).committed }
         assertThat(committed).isTrue()
+    }
+
+    @Test fun `no-plate does NOT fire on a distant vehicle (not prominent)`() {
+        val fsm = NoOrObscuredPlateFsm(t)
+        var committed = false
+        repeat(10) { committed = fsm.onFrame(obs(it.toLong(), platePresent = false, vehicleProminent = false)).committed }
+        assertThat(committed).isFalse()
+    }
+
+    @Test fun `no-plate does NOT fire just because a present plate was unreadable`() {
+        // A plate we detected but could not cleanly OCR is our limitation, not a violation.
+        val fsm = NoOrObscuredPlateFsm(t)
+        var committed = false
+        repeat(10) { committed = fsm.onFrame(obs(it.toLong(), platePresent = true, plateReadable = false)).committed }
+        assertThat(committed).isFalse()
     }
 
     @Test fun `engine scopes FSMs by vehicle class and commits once`() {

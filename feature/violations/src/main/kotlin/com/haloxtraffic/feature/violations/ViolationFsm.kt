@@ -38,6 +38,12 @@ data class TrackObservation(
     val plateReadable: Boolean,
     /** Plate conforms to a known Indian format; null until ANPR (Phase 4) reads it. */
     val plateConformant: Boolean?,
+    /**
+     * The vehicle is close/large enough that a plate would be reliably detectable if present. Absence
+     * of a plate is only treated as evidence for vehicles we have a genuinely good look at, so a missed
+     * detection on a distant or sharply angled vehicle is never read as a violation.
+     */
+    val vehicleProminent: Boolean = false,
     /** Expected travel direction in degrees (lane config or inferred majority flow), or null. */
     val expectedDirectionDeg: Float?,
     /** Track heading in degrees derived from velocity, or null if too slow to be meaningful. */
