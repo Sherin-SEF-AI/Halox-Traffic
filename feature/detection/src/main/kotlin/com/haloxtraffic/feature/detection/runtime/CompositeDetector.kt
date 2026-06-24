@@ -93,20 +93,26 @@ class CompositeDetector @Inject constructor(
             }
         }
 
-        // Helmet: heads live on the riders, so run on PERSON boxes that sit on a motorcycle (reliable
-        // head containers), expanded slightly upward for head margin.
+        // Helmet: heads live on the riders. Prefer PERSON boxes sitting on a motorcycle (tight head
+        // containers → biggest heads in the 320 crop). When COCO misses the rider (distant/small), fall
+        // back to a rider band just above the bike body so helmet detection still has somewhere to look.
         val motos = vehicles.filter { DetectionClass.fromId(it.classId) == DetectionClass.MOTORCYCLE }
         var riders = 0
         if (helmetEnabled && helmet.isReady() && motos.isNotEmpty()) {
             val persons = cocoBoxes.filter { DetectionClass.fromId(it.classId) == DetectionClass.PERSON }
-                .filter { p -> motos.any { overlaps(it, p) } }
-                .sortedByDescending { it.area }
-                .take(MAX_RIDERS)
-            riders = persons.size
-            for (p in persons) {
-                val head = p.copy(top = (p.top - p.height * RIDER_UP).coerceAtLeast(0f))
-                cropRegion(frameBmp, head)?.let { (bmp, region) ->
-                    helmet.detect(bmp).forEach { out += remap(it, region) }
+            val regions = ArrayList<BoundingBox>()
+            for (moto in motos.take(MAX_RIDERS)) {
+                val onThisBike = persons.filter { overlaps(moto, it) }
+                if (onThisBike.isNotEmpty()) {
+                    onThisBike.forEach { regions += it.copy(top = (it.top - it.height * RIDER_UP).coerceAtLeast(0f)) }
+                } else {
+                    regions += riderBand(moto)
+                }
+            }
+            riders = regions.size
+            for (region in regions.take(MAX_RIDERS)) {
+                cropRegion(frameBmp, region)?.let { (bmp, used) ->
+                    helmet.detect(bmp).forEach { out += remap(it, used) }
                     bmp.recycle()
                 }
             }
@@ -115,6 +121,14 @@ class CompositeDetector @Inject constructor(
             if (out.isNotEmpty()) " [${out.joinToString { DetectionClass.entries[it.classId].label }}]" else "")
         return out
     }
+
+    /** Where a rider's head/torso sits when COCO didn't detect the person: a band above the bike body. */
+    private fun riderBand(m: BoundingBox): BoundingBox = m.copy(
+        top = (m.top - m.height * RIDER_BAND_UP).coerceAtLeast(0f),
+        bottom = (m.top + m.height * RIDER_BAND_DOWN).coerceAtMost(1f),
+        left = (m.left - m.width * RIDER_BAND_SIDE).coerceAtLeast(0f),
+        right = (m.right + m.width * RIDER_BAND_SIDE).coerceAtMost(1f),
+    )
 
     /** True if the two normalised boxes intersect at all. */
     private fun overlaps(a: BoundingBox, b: BoundingBox): Boolean =
@@ -153,5 +167,9 @@ class CompositeDetector @Inject constructor(
         const val MIN_CROP = 24         // skip tiny vehicle boxes
         const val MAX_RIDERS = 4        // cap helmet inferences per frame
         const val RIDER_UP = 0.25f      // expand a rider's person box upward for head margin
+        // Rider band above the bike body used when COCO didn't detect the person on the bike.
+        const val RIDER_BAND_UP = 1.4f
+        const val RIDER_BAND_DOWN = 0.4f
+        const val RIDER_BAND_SIDE = 0.15f
     }
 }

@@ -54,6 +54,13 @@ class ViolationController @Inject constructor() {
     fun onFrame(boxes: List<BoundingBox>): List<ViolationEvent> {
         val f = frame++
         val observations = builder.build(boxes, f)
+
+        // Diagnostic: surface the helmet chain (detection -> head association -> moving) so a missing
+        // No-Helmet commit can be traced to the exact stage that dropped it.
+        observations.filter { it.helmetedHeads > 0 || it.unhelmetedHeads > 0 }.forEach {
+            Timber.d("HelmetAssoc track=${it.track.trackId} moving=${it.moving} helmeted=${it.helmetedHeads} bare=${it.unhelmetedHeads}")
+        }
+
         val newEvents = engine.process(observations)
 
         if (newEvents.isNotEmpty()) {

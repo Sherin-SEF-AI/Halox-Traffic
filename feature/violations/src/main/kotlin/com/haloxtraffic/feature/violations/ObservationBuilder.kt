@@ -45,13 +45,17 @@ class ObservationBuilder(
 
         return tracks.map { track ->
             val heading = Angles.heading(track.velocity.x, track.velocity.y, thresholds.movingSpeed)
-            val headBox = track.box.expandedTop(HEAD_EXPAND)
             val windshield = track.box.upperRegion(WINDSHIELD_FRAC)
             val plate = plates.filter { it.center in track.box }.maxByOrNull { it.score }
             val isFourWheeler = track.vehicleClass == VehicleClass.CAR || track.vehicleClass == VehicleClass.TRUCK
+            val isTwoWheeler = track.vehicleClass == VehicleClass.MOTORCYCLE
             // Riders sit above + astride a two-wheeler, so their person-box centres are usually outside
             // the bike body box — count them in an expanded rider region instead.
             val riderRegion = track.box.expandedForRiders()
+            // A rider's head sits well above the bike body (roughly a torso's height up), beyond a small
+            // top-expansion. For two-wheelers use the full rider region so helmet/bare-head detections on
+            // the rider are actually associated with the bike; four-wheelers keep the tight head band.
+            val headBox = if (isTwoWheeler) riderRegion else track.box.expandedTop(HEAD_EXPAND)
 
             val personsInWindshield = persons.count { it.center in windshield }
             val seatbeltsInWindshield = seatbelts.count { it.center in windshield }
