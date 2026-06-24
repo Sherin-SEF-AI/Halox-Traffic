@@ -50,6 +50,29 @@ fun ReportsScreen(
             TelemetryRow("UNCERTAIN", pct(analytics.uncertainRate))
         }
 
+        HaloxCard {
+            Text("DETECTION ACCURACY", style = HaloxTheme.typography.labelMicro, color = HaloxTheme.colors.inkFaint)
+            Text(
+                "Precision from human review: of the cases you confirmed or dismissed, the share you " +
+                    "confirmed as real. A low number means a violation type is over firing.",
+                style = HaloxTheme.typography.body,
+                color = HaloxTheme.colors.inkMuted,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            val r = analytics.review
+            TelemetryRow("PRECISION", precisionLabel(r.precision), valueEmphasis = true)
+            TelemetryRow("CONFIRMED", r.confirmed.toString())
+            TelemetryRow("DISMISSED", r.dismissed.toString())
+            TelemetryRow("PENDING REVIEW", analytics.pendingReview.toString())
+            val reviewedTypes = analytics.reviewByType.filterValues { it.reviewed > 0 }
+            if (reviewedTypes.isNotEmpty()) {
+                HairlineDivider(Modifier.padding(vertical = 8.dp))
+                reviewedTypes.entries.sortedBy { it.value.precision ?: 1f }.forEach { (type, m) ->
+                    TelemetryRow(type.displayName, "${precisionLabel(m.precision)}  (${m.confirmed}/${m.reviewed})")
+                }
+            }
+        }
+
         if (analytics.byType.isNotEmpty()) {
             HaloxCard {
                 Text("BY TYPE", style = HaloxTheme.typography.labelMicro, color = HaloxTheme.colors.inkFaint)
@@ -103,3 +126,5 @@ private fun HourHistogram(analytics: CaseAnalytics) {
 }
 
 private fun pct(v: Float): String = "${(v * 100).toInt()}%"
+
+private fun precisionLabel(p: Float?): String = if (p == null) "no reviews yet" else "${(p * 100).toInt()}%"

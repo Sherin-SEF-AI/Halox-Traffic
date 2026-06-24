@@ -1,7 +1,29 @@
 package com.haloxtraffic.core.data.analytics
 
 import com.haloxtraffic.core.data.entity.ViolationCaseEntity
+import com.haloxtraffic.core.model.CaseStatus
 import com.haloxtraffic.core.model.ViolationType
+
+/**
+ * Review-driven precision: how often a human confirmed a flagged case versus dismissed it as a false
+ * alarm. This is the real correctness signal — a low precision means the detector is over-firing.
+ */
+data class ReviewMetrics(
+    val confirmed: Int,
+    val dismissed: Int,
+) {
+    val reviewed: Int get() = confirmed + dismissed
+
+    /** confirmed / reviewed, or null until at least one case has been reviewed. */
+    val precision: Float? get() = if (reviewed == 0) null else confirmed.toFloat() / reviewed
+
+    companion object {
+        fun of(cases: List<ViolationCaseEntity>) = ReviewMetrics(
+            confirmed = cases.count { it.status == CaseStatus.CONFIRMED },
+            dismissed = cases.count { it.status == CaseStatus.DISMISSED },
+        )
+    }
+}
 
 /** Session/lifetime analytics derived from cases (§12.6). */
 data class CaseAnalytics(
@@ -15,9 +37,15 @@ data class CaseAnalytics(
     val repeatPlates: List<Pair<String, Int>>,
     /** Violation counts by hour-of-day (UTC), 0..23. */
     val byHour: Map<Int, Int>,
+    /** Precision over all reviewed cases (confirmed vs dismissed by a human). */
+    val review: ReviewMetrics,
+    /** Precision broken down per violation type, so an over-firing type is visible. */
+    val reviewByType: Map<ViolationType, ReviewMetrics>,
+    /** Cases still awaiting human review (status OPEN or REVIEWED). */
+    val pendingReview: Int,
 ) {
     companion object {
-        val EMPTY = CaseAnalytics(0, emptyMap(), 0f, 0f, emptyList(), emptyMap())
+        val EMPTY = CaseAnalytics(0, emptyMap(), 0f, 0f, emptyList(), emptyMap(), ReviewMetrics(0, 0), emptyMap(), 0)
     }
 }
 
@@ -39,6 +67,10 @@ object Analytics {
 
         val byHour = cases.groupingBy { ((it.ts / 3_600_000L) % 24).toInt() }.eachCount()
 
+        val review = ReviewMetrics.of(cases)
+        val reviewByType = cases.groupBy { it.type }.mapValues { ReviewMetrics.of(it.value) }
+        val pendingReview = cases.count { it.status == CaseStatus.OPEN || it.status == CaseStatus.REVIEWED }
+
         return CaseAnalytics(
             total = total,
             byType = byType,
@@ -46,6 +78,9 @@ object Analytics {
             uncertainRate = uncertain.toFloat() / total,
             repeatPlates = repeatPlates,
             byHour = byHour,
+            review = review,
+            reviewByType = reviewByType,
+            pendingReview = pendingReview,
         )
     }
 }

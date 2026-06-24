@@ -15,11 +15,12 @@ class AnalyticsTest {
         plate: String? = "KA05MH2453",
         validated: Boolean = true,
         ts: Long = 0L,
+        status: CaseStatus = CaseStatus.OPEN,
     ) = ViolationCaseEntity(
         id = id, sessionId = "s", vehicleTrackId = 1, type = type, severity = 1, ts = ts,
         lat = 12.0, lon = 77.0, accuracyM = 5f, heading = null, fsmTraceJson = "[]",
         plateString = plate, plateConfidence = 0.9f, plateValidated = validated, plateColor = null,
-        vlmDescription = null, status = CaseStatus.OPEN, evidencePackageId = null,
+        vlmDescription = null, status = status, evidencePackageId = null,
     )
 
     @Test fun `empty input is EMPTY`() {
@@ -43,5 +44,30 @@ class AnalyticsTest {
         assertThat(a.repeatPlates).containsExactly("KA01AB1111" to 2)
         assertThat(a.byHour[1]).isEqualTo(2)
         assertThat(a.byHour[2]).isEqualTo(2)
+    }
+
+    @Test fun `review precision counts confirmed over reviewed, per type`() {
+        val cases = listOf(
+            case("a", ViolationType.PLATE_MISSING_OR_OBSCURED, status = CaseStatus.CONFIRMED),
+            case("b", ViolationType.PLATE_MISSING_OR_OBSCURED, status = CaseStatus.DISMISSED),
+            case("c", ViolationType.PLATE_MISSING_OR_OBSCURED, status = CaseStatus.DISMISSED),
+            case("d", ViolationType.NO_HELMET, status = CaseStatus.CONFIRMED),
+            case("e", ViolationType.NO_HELMET, status = CaseStatus.OPEN), // pending, excluded from precision
+        )
+        val a = Analytics.compute(cases)
+
+        assertThat(a.review.confirmed).isEqualTo(2)
+        assertThat(a.review.dismissed).isEqualTo(2)
+        assertThat(a.review.precision!!).isWithin(1e-4f).of(0.5f) // 2 of 4 reviewed confirmed
+        assertThat(a.pendingReview).isEqualTo(1)
+        // The over-firing type shows low precision; the clean type shows high.
+        assertThat(a.reviewByType[ViolationType.PLATE_MISSING_OR_OBSCURED]!!.precision!!).isWithin(1e-4f).of(1f / 3f)
+        assertThat(a.reviewByType[ViolationType.NO_HELMET]!!.precision!!).isWithin(1e-4f).of(1f)
+    }
+
+    @Test fun `precision is null until something is reviewed`() {
+        val a = Analytics.compute(listOf(case("a", status = CaseStatus.OPEN)))
+        assertThat(a.review.precision).isNull()
+        assertThat(a.pendingReview).isEqualTo(1)
     }
 }
