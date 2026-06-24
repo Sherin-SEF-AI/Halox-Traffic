@@ -10,6 +10,7 @@ import timber.log.Timber
 import java.nio.FloatBuffer
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 
 /** On-device plate-text recognizer contract (Stage 4). */
 interface PlateOcrEngine {
@@ -77,18 +78,33 @@ class OnnxOcrEngine @Inject constructor(
         }.getOrElse { Timber.e(it, "OCR failed"); OcrRead("", emptyList(), 0f) }
     }
 
-    /** Plate crop → 48×WIDTH, NCHW, RGB, normalised to [-1,1]. */
+    /**
+     * Plate crop → 48×WIDTH, NCHW, RGB, normalised to [-1,1]. Resizes preserving aspect ratio to height
+     * 48 and right-pads with neutral gray (PaddleOCR's own recipe) rather than stretching to fill, which
+     * otherwise squashes characters and clips the trailing one. Measured to recover edge characters that
+     * a plain stretch drops, with no regression on already-correct plates.
+     */
     private fun preprocess(crop: Bitmap): FloatBuffer {
-        val scaled = Bitmap.createScaledBitmap(crop, WIDTH, HEIGHT, true)
-        val px = IntArray(WIDTH * HEIGHT)
-        scaled.getPixels(px, 0, WIDTH, 0, 0, WIDTH, HEIGHT)
+        val targetW = ((HEIGHT.toFloat() * crop.width / crop.height).roundToInt()).coerceIn(1, WIDTH)
+        val scaled = Bitmap.createScaledBitmap(crop, targetW, HEIGHT, true)
+        val sp = IntArray(targetW * HEIGHT)
+        scaled.getPixels(sp, 0, targetW, 0, 0, targetW, HEIGHT)
         if (scaled != crop) scaled.recycle()
+
         val plane = WIDTH * HEIGHT
         val buf = FloatBuffer.allocate(3 * plane)
         fun norm(v: Int) = (v / 255f - 0.5f) / 0.5f
-        for (i in px.indices) buf.put(i, norm(px[i] shr 16 and 0xFF))
-        for (i in px.indices) buf.put(plane + i, norm(px[i] shr 8 and 0xFF))
-        for (i in px.indices) buf.put(2 * plane + i, norm(px[i] and 0xFF))
+        val gray = norm(127)
+        for (i in 0 until 3 * plane) buf.put(i, gray) // neutral pad on the unused right columns
+        for (y in 0 until HEIGHT) {
+            for (x in 0 until targetW) {
+                val p = sp[y * targetW + x]
+                val dst = y * WIDTH + x
+                buf.put(dst, norm(p shr 16 and 0xFF))
+                buf.put(plane + dst, norm(p shr 8 and 0xFF))
+                buf.put(2 * plane + dst, norm(p and 0xFF))
+            }
+        }
         return buf
     }
 
